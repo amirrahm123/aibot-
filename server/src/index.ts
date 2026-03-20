@@ -1,3 +1,12 @@
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION:', err);
+  process.exit(1);
+});
+
 import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
 dotenv.config(); // also check server/.env
@@ -52,6 +61,15 @@ app.use('/api/dashboard', dashboardRoutes);
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Startup diagnostics
+console.log('ENV CHECK:', {
+  MONGODB_URI: !!process.env.MONGODB_URI,
+  JWT_SECRET: !!process.env.JWT_SECRET,
+  PORT: process.env.PORT,
+  NODE_ENV: process.env.NODE_ENV,
+  CWD: process.cwd(),
 });
 
 // Connect to MongoDB and start server

@@ -13,7 +13,7 @@ export interface ISupplierDocument extends Document {
 }
 
 const SupplierSchema = new Schema<ISupplierDocument>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true, trim: true },
   contactName: { type: String, trim: true },
   contactPhone: { type: String, trim: true },

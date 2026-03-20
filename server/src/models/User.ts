@@ -20,7 +20,7 @@ const UserSchema = new Schema<IUserDocument>({
   createdAt: { type: Date, default: Date.now },
 });
 
-UserSchema.index({ username: 1 });
+// username already indexed via unique: true
 UserSchema.index({ phone: 1 });
 
 export default mongoose.model<IUserDocument>('User', UserSchema);

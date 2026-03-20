@@ -63,29 +63,41 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Startup diagnostics
-console.log('ENV CHECK:', {
-  MONGODB_URI: !!process.env.MONGODB_URI,
-  JWT_SECRET: !!process.env.JWT_SECRET,
-  PORT: process.env.PORT,
-  NODE_ENV: process.env.NODE_ENV,
-  CWD: process.cwd(),
-});
+// Startup
+async function start() {
+  console.log('=== PriceGuard Server Starting ===');
+  console.log('ENV CHECK:', {
+    MONGODB_URI: !!process.env.MONGODB_URI,
+    JWT_SECRET: !!process.env.JWT_SECRET,
+    PORT: process.env.PORT,
+    NODE_ENV: process.env.NODE_ENV,
+    CWD: process.cwd(),
+  });
 
-// Connect to MongoDB and start server
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/priceguard';
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/priceguard';
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
+  try {
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(MONGODB_URI);
+    console.log('MongoDB connected successfully');
+  } catch (err) {
+    console.error('MongoDB connection FAILED:', err);
+    process.exit(1);
+  }
+
+  try {
     app.listen(PORT, () => {
       console.log(`PriceGuard server running on port ${PORT}`);
     });
-  })
-  .catch((err) => {
-    console.error('Failed to connect to MongoDB:', err);
+  } catch (err) {
+    console.error('Server listen FAILED:', err);
     process.exit(1);
-  });
+  }
+}
+
+start().catch((err) => {
+  console.error('STARTUP CRASH:', err);
+  process.exit(1);
+});
 
 export default app;

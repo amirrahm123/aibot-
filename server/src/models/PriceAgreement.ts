@@ -12,8 +12,8 @@ export interface IPriceAgreementDocument extends Document {
 }
 
 const PriceAgreementSchema = new Schema<IPriceAgreementDocument>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
   productName: { type: String, required: true, trim: true },
   unit: { type: String, enum: ['kg', 'unit', 'liter', 'box', 'other'], required: true },
   agreedPrice: { type: Number, required: true }, // agorot

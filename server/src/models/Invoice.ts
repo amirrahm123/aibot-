@@ -44,8 +44,8 @@ const LineItemSchema = new Schema<ILineItemSubdoc>({
 }, { _id: false });
 
 const InvoiceSchema = new Schema<IInvoiceDocument>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
   invoiceNumber: String,
   invoiceDate: Date,
   uploadedAt: { type: Date, default: Date.now },

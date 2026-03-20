@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  direction: rtl;
+  font-family: 'Rubik', sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium;
+  }
+
+  .btn-danger {
+    @apply bg-danger-500 text-white px-4 py-2 rounded-lg hover:bg-danger-600 transition-colors font-medium;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+
+  .badge-ok {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-50 text-success-500;
+  }
+
+  .badge-overcharge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-50 text-danger-500;
+  }
+
+  .badge-no-agreement {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600;
+  }
+
+  .badge-processing {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700;
+  }
+}
+
+/* ── Mobile-first responsive utilities ── */
+
+/* Touch-friendly targets */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .input-field,
+  select.input-field {
+    min-height: 48px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  /* Hide desktop tables, show mobile cards */
+  .desktop-table {
+    display: none !important;
+  }
+  .mobile-cards {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-cards {
+    display: none !important;
+  }
+  .desktop-table {
+    display: block !important;
+  }
+}
+
+/* Prevent horizontal scroll globally */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}

@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type PlanType = 'free' | 'pro' | 'business';
+
 export interface IUserDocument extends Document {
   username: string;
   email?: string;
@@ -7,6 +9,10 @@ export interface IUserDocument extends Document {
   businessName: string;
   ownerName: string;
   phone: string; // Israeli format: 05X-XXXXXXX
+  plan: PlanType;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  planExpiresAt?: Date;
   createdAt: Date;
 }
 
@@ -17,6 +23,10 @@ const UserSchema = new Schema<IUserDocument>({
   businessName: { type: String, required: true, trim: true },
   ownerName: { type: String, required: true, trim: true },
   phone: { type: String, required: true, trim: true },
+  plan: { type: String, enum: ['free', 'pro', 'business'], default: 'free' },
+  stripeCustomerId: { type: String },
+  stripeSubscriptionId: { type: String },
+  planExpiresAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
 });
 

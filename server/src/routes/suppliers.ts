@@ -3,6 +3,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 import Supplier from '../models/Supplier';
 import PriceAgreement from '../models/PriceAgreement';
 import Invoice from '../models/Invoice';
+import User from '../models/User';
 
 const router = Router();
 router.use(authMiddleware);
@@ -44,6 +45,16 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // POST /api/suppliers
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
+    // Free plan limit: 2 suppliers
+    const user = await User.findById(req.userId);
+    if (user && (!user.plan || user.plan === 'free')) {
+      const count = await Supplier.countDocuments({ userId: req.userId, isActive: true });
+      if (count >= 2) {
+        res.status(403).json({ error: 'שדרג לפרו להוסיף ספקים נוספים', upgrade: true });
+        return;
+      }
+    }
+
     const { name, contactName, contactPhone, email, category, notes } = req.body;
     if (!name) {
       res.status(400).json({ error: 'שם ספק נדרש' });

@@ -22,6 +22,7 @@ import supplierRoutes from './routes/suppliers';
 import agreementRoutes from './routes/agreements';
 import invoiceRoutes from './routes/invoices';
 import dashboardRoutes from './routes/dashboard';
+import paymentRoutes from './routes/payments';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,6 +49,8 @@ app.use(cors({
   },
   credentials: true,
 }));
+// Stripe webhook needs raw body — must be before express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use('/uploads', express.static(path.resolve(uploadDir)));
 
@@ -57,6 +60,7 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('/api/agreements', agreementRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

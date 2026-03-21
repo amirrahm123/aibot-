@@ -10,6 +10,7 @@ const navItems = [
   { path: '/invoices', label: 'חשבוניות', icon: '📄' },
   { path: '/suppliers', label: 'ספקים', icon: '🏢' },
   { path: '/agreements', label: 'הסכמי מחיר', icon: '💰' },
+  { path: '/pricing', label: 'תוכניות', icon: '⭐' },
 ];
 
 export default function Layout() {

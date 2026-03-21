@@ -1,10 +1,14 @@
 // ===== User =====
+export type PlanType = 'free' | 'pro' | 'business';
+
 export interface IUser {
   _id: string;
   username: string;
   businessName: string;
   ownerName: string;
   phone: string;
+  plan: PlanType;
+  planExpiresAt?: string;
   createdAt: string;
 }
 

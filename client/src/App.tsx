@@ -9,6 +9,7 @@ import SuppliersPage from './pages/SuppliersPage';
 import AgreementsPage from './pages/AgreementsPage';
 import InvoicesPage from './pages/InvoicesPage';
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
+import PricingPage from './pages/PricingPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="agreements" element={<AgreementsPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="pricing" element={<PricingPage />} />
       </Route>
     </Routes>
   );

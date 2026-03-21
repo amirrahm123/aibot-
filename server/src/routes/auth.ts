@@ -348,6 +348,8 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       businessName: user.businessName,
       ownerName: user.ownerName,
       phone: user.phone,
+      plan: user.plan || 'free',
+      planExpiresAt: user.planExpiresAt,
       createdAt: user.createdAt,
     });
   } catch {

@@ -5,6 +5,7 @@ import Papa from 'papaparse';
 import { IPriceAgreement, ISupplier, UnitType } from '@shared/types';
 import * as agreementsApi from '../api/agreements';
 import * as suppliersApi from '../api/suppliers';
+import { useOnboardingStore } from '../store/onboardingStore';
 
 const UNITS: { value: UnitType; label: string }[] = [
   { value: 'kg', label: 'ק"ג' },
@@ -25,6 +26,7 @@ export default function AgreementsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState(filterSupplier);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const { markStep, steps } = useOnboardingStore();
 
   const [form, setForm] = useState({
     supplierId: filterSupplier,
@@ -44,6 +46,9 @@ export default function AgreementsPage() {
       ]);
       setAgreements(agrs);
       setSuppliers(sups);
+      if (agrs.length > 0 && !steps.addedAgreement) {
+        markStep('addedAgreement');
+      }
     } catch {
       toast.error('שגיאה בטעינת נתונים');
     } finally {
@@ -67,6 +72,7 @@ export default function AgreementsPage() {
       } else {
         await agreementsApi.createAgreement(data);
         toast.success('הסכם נוסף');
+        markStep('addedAgreement');
       }
       setShowForm(false);
       setEditingId(null);
@@ -224,8 +230,22 @@ export default function AgreementsPage() {
 
       {/* Agreements list */}
       {agreements.length === 0 ? (
-        <div className="text-center text-gray-500 py-12">
-          <p>אין הסכמי מחיר {selectedSupplier ? 'לספק זה' : 'עדיין'}</p>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">💰</div>
+          <h2 className="text-xl font-bold text-gray-700 mb-2">
+            {selectedSupplier ? 'אין הסכמי מחיר לספק זה' : 'עדיין אין הסכמי מחיר'}
+          </h2>
+          <p className="text-gray-500 mb-6">הגדר מחירים מוסכמים כדי לזהות חריגות אוטומטית</p>
+          <button
+            onClick={() => {
+              setShowForm(true);
+              setEditingId(null);
+              setForm({ supplierId: selectedSupplier, productName: '', unit: 'kg', agreedPrice: '', validFrom: new Date().toISOString().split('T')[0], validUntil: '', notes: '' });
+            }}
+            className="btn-primary text-base px-8 py-3"
+          >
+            + הוסף הסכם ראשון
+          </button>
         </div>
       ) : (
         <>

@@ -122,7 +122,13 @@ export default function DashboardPage() {
           </button>
         </div>
         {recentInvoices.length === 0 ? (
-          <p className="text-gray-500 text-sm">אין חשבוניות עדיין</p>
+          <div className="text-center py-8">
+            <div className="text-4xl mb-3">📄</div>
+            <p className="text-gray-500 text-sm">אין חשבוניות עדיין</p>
+            <button onClick={() => navigate('/invoices')} className="text-sm text-primary-500 hover:underline mt-2">
+              העלה חשבונית ראשונה →
+            </button>
+          </div>
         ) : (
           <>
             {/* Desktop table */}

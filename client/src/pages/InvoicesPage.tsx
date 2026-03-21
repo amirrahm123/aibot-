@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { IInvoice, ISupplier, PaginatedResponse } from '@shared/types';
 import * as invoicesApi from '../api/invoices';
 import * as suppliersApi from '../api/suppliers';
+import { useOnboardingStore } from '../store/onboardingStore';
+import OnboardingTooltip from '../components/OnboardingTooltip';
 
 function formatAgorot(agorot: number): string {
   return `₪${(agorot / 100).toFixed(2)}`;
@@ -23,6 +25,8 @@ export default function InvoicesPage() {
   const [overchargeOnly, setOverchargeOnly] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const { markStep, steps } = useOnboardingStore();
+  const uploadBtnRef = useRef<HTMLButtonElement>(null);
 
   const loadData = async () => {
     try {
@@ -32,6 +36,12 @@ export default function InvoicesPage() {
       ]);
       setInvoices(invs);
       setSuppliers(sups);
+      if (invs.data.length > 0 && !steps.uploadedInvoice) {
+        markStep('uploadedInvoice');
+      }
+      if (sups.length > 0 && !steps.addedSupplier) {
+        markStep('addedSupplier');
+      }
     } catch {
       toast.error('שגיאה בטעינת חשבוניות');
     } finally {
@@ -66,6 +76,8 @@ export default function InvoicesPage() {
       setUploadFile(null);
       setUploadSupplierId('');
 
+      markStep('uploadedInvoice');
+
       if (invoice.overchargeCount > 0) {
         toast.error(`נמצאו ${invoice.overchargeCount} חריגות מחיר! לחץ לפרטים`, { duration: 6000 });
       } else {
@@ -97,9 +109,18 @@ export default function InvoicesPage() {
     <div>
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">חשבוניות</h1>
-        <button onClick={() => setShowUploadModal(true)} className="btn-primary">
-          העלה חשבונית
-        </button>
+        <div className="relative">
+          <button ref={uploadBtnRef} onClick={() => setShowUploadModal(true)} className="btn-primary">
+            העלה חשבונית
+          </button>
+          {(!invoices || invoices.data.length === 0) && (
+            <OnboardingTooltip
+              id="invoices-upload-btn"
+              targetRef={uploadBtnRef}
+              text="גרור PDF של חשבונית לכאן כדי לזהות חריגות מחיר אוטומטית"
+            />
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -179,9 +200,16 @@ export default function InvoicesPage() {
 
       {/* Table */}
       {!invoices || invoices.data.length === 0 ? (
-        <div className="text-center text-gray-500 py-12">
-          <p className="text-lg">אין חשבוניות</p>
-          <p className="text-sm mt-1">העלה חשבונית ראשונה כדי להתחיל</p>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">📄</div>
+          <h2 className="text-xl font-bold text-gray-700 mb-2">עדיין אין חשבוניות</h2>
+          <p className="text-gray-500 mb-6">העלה חשבונית ראשונה מאחד הספקים שלך</p>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="btn-primary text-base px-8 py-3"
+          >
+            + העלה חשבונית
+          </button>
         </div>
       ) : (
         <>

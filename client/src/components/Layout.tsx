@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useOnboardingStore } from '../store/onboardingStore';
+import WelcomeModal from './WelcomeModal';
+import OnboardingChecklist from './OnboardingChecklist';
 
 const navItems = [
   { path: '/dashboard', label: 'דשבורד', icon: '📊' },
@@ -13,6 +16,11 @@ export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { load: loadOnboarding, resetOnboarding, completed: onboardingCompleted } = useOnboardingStore();
+
+  useEffect(() => {
+    loadOnboarding();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -48,6 +56,15 @@ export default function Layout() {
             </div>
             <div className="flex items-center gap-3 md:gap-4">
               <span className="text-sm text-gray-500 hidden sm:block">{user?.businessName}</span>
+              {onboardingCompleted && (
+                <button
+                  onClick={resetOnboarding}
+                  className="text-sm text-gray-400 hover:text-primary-500 hidden md:block"
+                  title="סיור מודרך"
+                >
+                  סיור מודרך
+                </button>
+              )}
               <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 hidden md:block">
                 התנתק
               </button>
@@ -93,6 +110,14 @@ export default function Layout() {
               {user?.businessName && (
                 <p className="px-3 py-2 text-sm text-gray-500">{user.businessName}</p>
               )}
+              {onboardingCompleted && (
+                <button
+                  onClick={() => { setMobileMenuOpen(false); resetOnboarding(); }}
+                  className="w-full text-right px-3 py-3 text-base font-medium text-gray-500 hover:bg-gray-50 rounded-lg min-h-[44px]"
+                >
+                  סיור מודרך
+                </button>
+              )}
               <button
                 onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
                 className="w-full text-right px-3 py-3 text-base font-medium text-danger-500 hover:bg-gray-50 rounded-lg min-h-[44px]"
@@ -106,8 +131,12 @@ export default function Layout() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+        <OnboardingChecklist />
         <Outlet />
       </main>
+
+      {/* Onboarding welcome modal */}
+      <WelcomeModal />
     </div>
   );
 }

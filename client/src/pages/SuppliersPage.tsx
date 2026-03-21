@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ISupplier, SupplierCategory, SUPPLIER_CATEGORIES } from '@shared/types';
 import * as suppliersApi from '../api/suppliers';
+import { useOnboardingStore } from '../store/onboardingStore';
+import OnboardingTooltip from '../components/OnboardingTooltip';
 
 const defaultForm = {
   name: '',
@@ -21,11 +23,16 @@ export default function SuppliersPage() {
   const [showAll, setShowAll] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const navigate = useNavigate();
+  const { markStep, steps } = useOnboardingStore();
+  const addBtnRef = useRef<HTMLButtonElement>(null);
 
   const loadSuppliers = async () => {
     try {
       const data = await suppliersApi.getSuppliers(showAll);
       setSuppliers(data);
+      if (data.length > 0 && !steps.addedSupplier) {
+        markStep('addedSupplier');
+      }
     } catch {
       toast.error('שגיאה בטעינת ספקים');
     } finally {
@@ -44,6 +51,7 @@ export default function SuppliersPage() {
       } else {
         await suppliersApi.createSupplier(form);
         toast.success('ספק נוסף בהצלחה');
+        markStep('addedSupplier');
       }
       setShowForm(false);
       setEditingId(null);
@@ -120,12 +128,23 @@ export default function SuppliersPage() {
             />
             הצג לא פעילים
           </label>
-          <button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
-            className="btn-primary hidden md:block"
-          >
-            + הוסף ספק
-          </button>
+          <div className="relative hidden md:block">
+            <button
+              ref={addBtnRef}
+              onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
+              className="btn-primary"
+              id="add-supplier-btn"
+            >
+              + הוסף ספק
+            </button>
+            {suppliers.length === 0 && (
+              <OnboardingTooltip
+                id="suppliers-add-btn"
+                targetRef={addBtnRef}
+                text="לחץ כאן להוסיף את הספק הראשון שלך"
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -208,9 +227,16 @@ export default function SuppliersPage() {
 
       {/* Supplier cards */}
       {suppliers.length === 0 ? (
-        <div className="text-center text-gray-500 py-12">
-          <p className="text-lg">אין ספקים עדיין</p>
-          <p className="text-sm mt-1">הוסף ספק ראשון כדי להתחיל</p>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">🏪</div>
+          <h2 className="text-xl font-bold text-gray-700 mb-2">עדיין אין ספקים</h2>
+          <p className="text-gray-500 mb-6">הוסף את הספק הראשון שלך כדי להתחיל לעקוב אחר מחירים</p>
+          <button
+            onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
+            className="btn-primary text-base px-8 py-3"
+          >
+            + הוסף ספק ראשון
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

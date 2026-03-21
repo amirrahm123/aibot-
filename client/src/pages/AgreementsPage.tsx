@@ -141,8 +141,25 @@ export default function AgreementsPage() {
     return s?.name || '';
   };
 
+  const isExpired = (a: IPriceAgreement) => {
+    return a.validUntil ? new Date(a.validUntil) < new Date() : false;
+  };
+
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>;
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-8 skeleton w-32" />
+          <div className="flex gap-2"><div className="h-10 skeleton w-28" /><div className="h-10 skeleton w-28" /></div>
+        </div>
+        <div className="h-10 skeleton w-48 mb-4" />
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-14 skeleton" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -265,7 +282,7 @@ export default function AgreementsPage() {
               </thead>
               <tbody>
                 {agreements.map((a) => (
-                  <tr key={a._id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={a._id} className={`border-b border-gray-100 hover:bg-gray-50 ${isExpired(a) ? 'opacity-50 bg-gray-50' : ''}`}>
                     <td className="px-4 py-3 text-sm">{(a as any).supplierId?.name || getSupplierName(a.supplierId)}</td>
                     <td className="px-4 py-3 text-sm font-medium">{a.productName}</td>
                     <td className="px-4 py-3 text-sm">{UNITS.find((u) => u.value === a.unit)?.label || a.unit}</td>
@@ -302,7 +319,7 @@ export default function AgreementsPage() {
           {/* Mobile cards */}
           <div className="mobile-cards space-y-3">
             {agreements.map((a) => (
-              <div key={a._id} className="card !p-4">
+              <div key={a._id} className={`card card-hover !p-4 ${isExpired(a) ? 'opacity-50 border-gray-300' : ''}`}>
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-semibold text-base">{a.productName}</h3>

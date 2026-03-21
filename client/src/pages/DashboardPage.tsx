@@ -2,11 +2,32 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DashboardStats, IInvoice, PaginatedResponse } from '@shared/types';
+import { DashboardStats, IInvoice } from '@shared/types';
 import * as invoicesApi from '../api/invoices';
 
 function formatAgorot(agorot: number): string {
   return `₪${(agorot / 100).toFixed(2)}`;
+}
+
+function DashboardSkeleton() {
+  return (
+    <div>
+      <div className="h-8 skeleton w-32 mb-6" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="card !p-4 md:!p-6">
+            <div className="h-4 skeleton w-20 mb-3" />
+            <div className="h-8 skeleton w-16" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="card"><div className="h-5 skeleton w-48 mb-4" /><div className="h-[250px] skeleton" /></div>
+        <div className="card"><div className="h-5 skeleton w-48 mb-4" /><div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 skeleton" />)}</div></div>
+      </div>
+      <div className="card"><div className="h-5 skeleton w-40 mb-4" /><div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 skeleton" />)}</div></div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -33,19 +54,7 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="card animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div className="h-10 bg-gray-200 rounded w-1/4"></div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
+  if (loading) return <DashboardSkeleton />;
   if (!stats) return null;
 
   const trendData = stats.overchargeTrend.map((d) => ({
@@ -57,19 +66,23 @@ export default function DashboardPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">דשבורד</h1>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-        <div className="card !p-4 md:!p-6">
+      {/* Stats cards — 4 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="card card-hover !p-4 md:!p-6">
           <p className="text-xs md:text-sm text-gray-500">חשבוניות החודש</p>
           <p className="text-2xl md:text-3xl font-bold mt-1">{stats.totalInvoices}</p>
         </div>
-        <div className="card !p-4 md:!p-6 border-danger-200">
+        <div className="card card-hover !p-4 md:!p-6 border-danger-200">
           <p className="text-xs md:text-sm text-gray-500">סה״כ חריגות החודש</p>
           <p className="text-xl md:text-3xl font-bold mt-1 text-danger-500" dir="ltr">{formatAgorot(stats.totalOverchargeAmount)}</p>
         </div>
-        <div className="card !p-4 md:!p-6 col-span-2 md:col-span-1">
+        <div className="card card-hover !p-4 md:!p-6">
           <p className="text-xs md:text-sm text-gray-500">פריטים חורגים</p>
           <p className="text-2xl md:text-3xl font-bold mt-1">{stats.overchargeCount}</p>
+        </div>
+        <div className="card card-hover !p-4 md:!p-6">
+          <p className="text-xs md:text-sm text-gray-500">ספקים פעילים</p>
+          <p className="text-2xl md:text-3xl font-bold mt-1 text-primary-500">{stats.activeSupplierCount}</p>
         </div>
       </div>
 
@@ -138,8 +151,10 @@ export default function DashboardPage() {
                   <tr className="border-b text-sm text-gray-500">
                     <th className="text-right py-2">תאריך</th>
                     <th className="text-right py-2">ספק</th>
+                    <th className="text-right py-2">מס׳ חשבונית</th>
                     <th className="text-right py-2">סה״כ</th>
                     <th className="text-right py-2">חריגה</th>
+                    <th className="text-right py-2">פריטים חורגים</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -147,16 +162,24 @@ export default function DashboardPage() {
                     <tr
                       key={inv._id}
                       onClick={() => navigate(`/invoices/${inv._id}`)}
-                      className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+                      className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${inv.overchargeCount > 0 ? 'bg-danger-50/20' : ''}`}
                     >
-                      <td className="py-2 text-sm" dir="ltr">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</td>
-                      <td className="py-2 text-sm">{inv.supplierName || '—'}</td>
-                      <td className="py-2 text-sm" dir="ltr">{formatAgorot(inv.totalInvoiceAmount)}</td>
-                      <td className="py-2 text-sm">
+                      <td className="py-2.5 text-sm" dir="ltr">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</td>
+                      <td className="py-2.5 text-sm font-medium">{inv.supplierName || '—'}</td>
+                      <td className="py-2.5 text-sm text-gray-500" dir="ltr">{inv.invoiceNumber || '—'}</td>
+                      <td className="py-2.5 text-sm" dir="ltr">{formatAgorot(inv.totalInvoiceAmount)}</td>
+                      <td className="py-2.5 text-sm">
                         {inv.totalOverchargeAmount > 0 ? (
                           <span className="text-danger-500 font-medium" dir="ltr">{formatAgorot(inv.totalOverchargeAmount)}</span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-success-500 text-xs">תקין</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-sm">
+                        {inv.overchargeCount > 0 ? (
+                          <span className="badge-overcharge">{inv.overchargeCount}</span>
+                        ) : (
+                          <span className="text-gray-400">0</span>
                         )}
                       </td>
                     </tr>
@@ -171,7 +194,7 @@ export default function DashboardPage() {
                 <div
                   key={inv._id}
                   onClick={() => navigate(`/invoices/${inv._id}`)}
-                  className={`flex justify-between items-center py-3 px-1 border-b border-gray-100 cursor-pointer active:bg-gray-50 ${inv.totalOverchargeAmount > 0 ? '' : ''}`}
+                  className={`flex justify-between items-center py-3 px-1 border-b border-gray-100 cursor-pointer active:bg-gray-50`}
                 >
                   <div>
                     <p className="font-medium text-sm">{inv.supplierName || '—'}</p>
@@ -179,8 +202,10 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-medium" dir="ltr">{formatAgorot(inv.totalInvoiceAmount)}</p>
-                    {inv.totalOverchargeAmount > 0 && (
+                    {inv.totalOverchargeAmount > 0 ? (
                       <p className="text-xs text-danger-500 font-medium" dir="ltr">{formatAgorot(inv.totalOverchargeAmount)}</p>
+                    ) : (
+                      <p className="text-xs text-success-500">תקין</p>
                     )}
                   </div>
                 </div>

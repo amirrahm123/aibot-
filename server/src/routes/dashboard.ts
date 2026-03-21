@@ -15,9 +15,10 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
 
     // Basic stats for this month
     const monthFilter = { userId: req.userId, uploadedAt: { $gte: startOfMonth }, status: 'done' };
-    const [totalInvoices, monthInvoices] = await Promise.all([
+    const [totalInvoices, monthInvoices, activeSupplierCount] = await Promise.all([
       Invoice.countDocuments({ userId: req.userId, status: 'done' }),
       Invoice.find(monthFilter).lean(),
+      Supplier.countDocuments({ userId: req.userId, isActive: true }),
     ]);
 
     const totalOverchargeAmount = monthInvoices.reduce((sum, inv) => sum + inv.totalOverchargeAmount, 0);
@@ -76,6 +77,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       totalInvoices,
       totalOverchargeAmount,
       overchargeCount,
+      activeSupplierCount,
       topOverchargingSuppliers,
       overchargeTrend,
     });

@@ -110,8 +110,44 @@ export default function SuppliersPage() {
     return colors[cat] || 'bg-gray-100 text-gray-700';
   };
 
+  // Generate avatar color from name
+  const avatarColor = (name: string): string => {
+    const colors = [
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
+      'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-rose-500',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  const getInitials = (name: string): string => {
+    const words = name.trim().split(/\s+/);
+    if (words.length >= 2) return words[0][0] + words[1][0];
+    return name.slice(0, 2);
+  };
+
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>;
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-8 skeleton w-24" />
+          <div className="h-10 skeleton w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="card">
+              <div className="flex gap-3 mb-3">
+                <div className="w-10 h-10 skeleton rounded-full" />
+                <div className="flex-1"><div className="h-5 skeleton w-32 mb-2" /><div className="h-4 skeleton w-20" /></div>
+              </div>
+              <div className="h-4 skeleton w-full mb-2" />
+              <div className="h-4 skeleton w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -243,38 +279,44 @@ export default function SuppliersPage() {
           {suppliers.map((s) => (
             <div
               key={s._id}
-              className={`card hover:shadow-md transition-shadow ${!s.isActive ? 'opacity-50' : ''}`}
+              className={`card card-hover ${!s.isActive ? 'opacity-50' : ''}`}
             >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h3 className="font-semibold text-lg">{s.name}</h3>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${categoryBadgeColor(s.category)}`}>
+              {/* Header: avatar + name + category */}
+              <div className="flex gap-3 mb-3">
+                <div className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor(s.name)} text-white flex items-center justify-center font-bold text-sm`}>
+                  {getInitials(s.name)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-base truncate">{s.name}</h3>
+                    {/* Agreement status */}
+                    {(s.agreementCount || 0) > 0 ? (
+                      <span className="flex-shrink-0 text-success-500 text-sm" title="יש הסכמי מחיר">✓</span>
+                    ) : (
+                      <span className="flex-shrink-0 text-amber-500 text-sm" title="אין הסכמי מחיר">⚠</span>
+                    )}
+                  </div>
+                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${categoryBadgeColor(s.category)}`}>
                     {s.category}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleEdit(s)} className="text-sm text-primary-500 hover:underline">ערוך</button>
-                  {s.isActive ? (
-                    <button onClick={() => handleDelete(s._id)} className="text-sm text-danger-500 hover:underline">השבת</button>
-                  ) : (
-                    <button onClick={() => handleReactivate(s._id)} className="text-sm text-success-500 hover:underline">הפעל</button>
-                  )}
-                </div>
               </div>
 
+              {/* Contact info */}
               {s.contactName && (
                 <p className="text-sm text-gray-600">
                   <span className="text-gray-400">איש קשר:</span> {s.contactName}
                 </p>
               )}
               {s.contactPhone && <p className="text-sm text-gray-500" dir="ltr">{s.contactPhone}</p>}
-              {s.email && <p className="text-sm text-gray-500" dir="ltr">{s.email}</p>}
 
+              {/* Stats */}
               <div className="flex gap-4 text-sm text-gray-600 mt-3 border-t pt-3">
                 <span>{s.agreementCount || 0} הסכמים</span>
                 <span>{s.invoiceCount || 0} חשבוניות</span>
               </div>
 
+              {/* Overcharge risk */}
               {(s.overchargeRiskPercent || 0) > 0 && (
                 <div className="mt-2">
                   <span className="text-xs text-danger-500 font-medium">
@@ -293,12 +335,23 @@ export default function SuppliersPage() {
                 <span className="inline-block mt-2 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">לא פעיל</span>
               )}
 
-              <button
-                onClick={() => navigate(`/agreements?supplierId=${s._id}`)}
-                className="text-sm text-primary-500 hover:underline mt-3 block min-h-[44px] flex items-center"
-              >
-                צפה בהסכמי מחיר →
-              </button>
+              {/* Actions */}
+              <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                <button
+                  onClick={() => navigate(`/agreements?supplierId=${s._id}`)}
+                  className="text-sm text-primary-500 hover:underline"
+                >
+                  הסכמי מחיר →
+                </button>
+                <div className="flex gap-3">
+                  <button onClick={() => handleEdit(s)} className="text-sm text-primary-500 hover:underline">ערוך</button>
+                  {s.isActive ? (
+                    <button onClick={() => handleDelete(s._id)} className="text-sm text-danger-500 hover:underline">השבת</button>
+                  ) : (
+                    <button onClick={() => handleReactivate(s._id)} className="text-sm text-success-500 hover:underline">הפעל</button>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </div>

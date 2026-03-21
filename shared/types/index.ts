@@ -185,6 +185,7 @@ export interface DashboardStats {
   totalInvoices: number;
   totalOverchargeAmount: number; // agorot
   overchargeCount: number;
+  activeSupplierCount: number;
   topOverchargingSuppliers: {
     supplierId: string;
     supplierName: string;

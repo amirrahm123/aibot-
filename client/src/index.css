@@ -25,7 +25,17 @@ body {
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 transition-all duration-200;
+  }
+
+  .card-hover:hover {
+    @apply shadow-md;
+    transform: translateY(-2px);
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    @apply bg-gray-200 rounded animate-pulse;
   }
 
   .badge-ok {

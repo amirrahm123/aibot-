@@ -102,7 +102,23 @@ export default function InvoicesPage() {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>;
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-8 skeleton w-28" />
+          <div className="h-10 skeleton w-36" />
+        </div>
+        <div className="flex gap-3 mb-4">
+          <div className="h-10 skeleton w-40" />
+          <div className="h-10 skeleton w-40" />
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-14 skeleton" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

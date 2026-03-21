@@ -9,7 +9,7 @@ process.on('unhandledRejection', (err) => {
 
 import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
-dotenv.config(); // also check server/.env
+dotenv.config(); // also check server/.env or env vars from hosting
 
 import express from 'express';
 import cors from 'cors';
@@ -66,6 +66,15 @@ app.use('/api/payments', paymentRoutes);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Serve React client in production
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.resolve(__dirname, '../../../../client/dist');
+  app.use(express.static(clientDist));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // Startup
 async function start() {

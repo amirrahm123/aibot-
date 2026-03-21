@@ -9,7 +9,7 @@ export default function WelcomeModal() {
 
   const handleStart = () => {
     dismissWelcome();
-    navigate('/suppliers');
+    navigate('/app/suppliers');
   };
 
   return (

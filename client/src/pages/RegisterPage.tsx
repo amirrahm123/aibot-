@@ -40,7 +40,7 @@ export default function RegisterPage() {
         username, password, businessName, ownerName, phone, otpCode,
       });
       setAuth(res.token, res.user);
-      navigate('/dashboard');
+      navigate('/app/dashboard');
       toast.success('ברוך הבא!');
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'קוד שגוי');

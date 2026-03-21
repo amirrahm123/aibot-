@@ -6,11 +6,11 @@ import WelcomeModal from './WelcomeModal';
 import OnboardingChecklist from './OnboardingChecklist';
 
 const navItems = [
-  { path: '/dashboard', label: 'דשבורד', icon: '📊' },
-  { path: '/invoices', label: 'חשבוניות', icon: '📄' },
-  { path: '/suppliers', label: 'ספקים', icon: '🏢' },
-  { path: '/agreements', label: 'הסכמי מחיר', icon: '💰' },
-  { path: '/pricing', label: 'תוכניות', icon: '⭐' },
+  { path: '/app/dashboard', label: 'דשבורד', icon: '📊' },
+  { path: '/app/invoices', label: 'חשבוניות', icon: '📄' },
+  { path: '/app/suppliers', label: 'ספקים', icon: '🏢' },
+  { path: '/app/agreements', label: 'הסכמי מחיר', icon: '💰' },
+  { path: '/app/pricing', label: 'תוכניות', icon: '⭐' },
 ];
 
 export default function Layout() {
@@ -25,7 +25,7 @@ export default function Layout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (

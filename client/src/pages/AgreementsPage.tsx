@@ -288,27 +288,36 @@ export default function AgreementsPage() {
                     <td className="px-4 py-3 text-sm">{UNITS.find((u) => u.value === a.unit)?.label || a.unit}</td>
                     <td className="px-4 py-3 text-sm font-medium text-success-500" dir="ltr">₪{(a.agreedPrice / 100).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm" dir="ltr">{new Date(a.validFrom).toLocaleDateString('he-IL')}</td>
-                    <td className="px-4 py-3 text-sm" dir="ltr">{a.validUntil ? new Date(a.validUntil).toLocaleDateString('he-IL') : '—'}</td>
+                    <td className="px-4 py-3 text-sm" dir="ltr">{a.validUntil ? new Date(a.validUntil).toLocaleDateString('he-IL') : <span className="text-gray-400" dir="rtl">ללא תפוגה</span>}</td>
                     <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => {
-                          setEditingId(a._id);
-                          setForm({
-                            supplierId: a.supplierId,
-                            productName: a.productName,
-                            unit: a.unit,
-                            agreedPrice: (a.agreedPrice / 100).toString(),
-                            validFrom: new Date(a.validFrom).toISOString().split('T')[0],
-                            validUntil: a.validUntil ? new Date(a.validUntil).toISOString().split('T')[0] : '',
-                            notes: a.notes || '',
-                          });
-                          setShowForm(true);
-                        }}
-                        className="text-primary-500 hover:underline ml-2"
-                      >
-                        ערוך
-                      </button>
-                      <button onClick={() => handleDelete(a._id)} className="text-danger-500 hover:underline">מחק</button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingId(a._id);
+                            setForm({
+                              supplierId: a.supplierId,
+                              productName: a.productName,
+                              unit: a.unit,
+                              agreedPrice: (a.agreedPrice / 100).toString(),
+                              validFrom: new Date(a.validFrom).toISOString().split('T')[0],
+                              validUntil: a.validUntil ? new Date(a.validUntil).toISOString().split('T')[0] : '',
+                              notes: a.notes || '',
+                            });
+                            setShowForm(true);
+                          }}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-primary-500 hover:bg-primary-50 transition-colors"
+                          title="ערוך"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(a._id)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-danger-500 hover:bg-danger-50 transition-colors"
+                          title="מחק"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -329,9 +338,9 @@ export default function AgreementsPage() {
                 </div>
                 <div className="flex justify-between text-sm text-gray-500 mb-3">
                   <span>יחידה: {UNITS.find((u) => u.value === a.unit)?.label || a.unit}</span>
-                  <span dir="ltr">{new Date(a.validFrom).toLocaleDateString('he-IL')}{a.validUntil ? ` — ${new Date(a.validUntil).toLocaleDateString('he-IL')}` : ''}</span>
+                  <span dir="ltr">{new Date(a.validFrom).toLocaleDateString('he-IL')}{a.validUntil ? ` — ${new Date(a.validUntil).toLocaleDateString('he-IL')}` : <span className="text-gray-400 mr-1" dir="rtl"> · ללא תפוגה</span>}</span>
                 </div>
-                <div className="flex gap-4 border-t border-gray-100 pt-2">
+                <div className="flex gap-2 border-t border-gray-100 pt-2">
                   <button
                     onClick={() => {
                       setEditingId(a._id);
@@ -346,11 +355,18 @@ export default function AgreementsPage() {
                       });
                       setShowForm(true);
                     }}
-                    className="text-primary-500 hover:underline text-sm min-h-[44px] flex items-center"
+                    className="p-2 rounded-lg text-gray-500 hover:text-primary-500 hover:bg-primary-50 transition-colors min-h-[44px] flex items-center"
+                    title="ערוך"
                   >
-                    ערוך
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
-                  <button onClick={() => handleDelete(a._id)} className="text-danger-500 hover:underline text-sm min-h-[44px] flex items-center">מחק</button>
+                  <button
+                    onClick={() => handleDelete(a._id)}
+                    className="p-2 rounded-lg text-gray-500 hover:text-danger-500 hover:bg-danger-50 transition-colors min-h-[44px] flex items-center"
+                    title="מחק"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
                 </div>
               </div>
             ))}

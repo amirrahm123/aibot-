@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/Layout';
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -26,6 +27,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthStore();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
+
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   const { loadUser } = useAuthStore();
 
@@ -35,17 +51,18 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <Layout />
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="agreements" element={<AgreementsPage />} />
@@ -53,6 +70,13 @@ export default function App() {
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="pricing" element={<PricingPage />} />
       </Route>
+      {/* Backwards compatibility — redirect old paths */}
+      <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/suppliers" element={<Navigate to="/app/suppliers" replace />} />
+      <Route path="/agreements" element={<Navigate to="/app/agreements" replace />} />
+      <Route path="/invoices/:id" element={<Navigate to="/app/invoices/:id" replace />} />
+      <Route path="/invoices" element={<Navigate to="/app/invoices" replace />} />
+      <Route path="/pricing" element={<Navigate to="/app/pricing" replace />} />
     </Routes>
   );
 }

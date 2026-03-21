@@ -84,7 +84,7 @@ export default function InvoicesPage() {
         toast.success('חשבונית עובדה בהצלחה');
       }
 
-      navigate(`/invoices/${invoice._id}`);
+      navigate(`/app/invoices/${invoice._id}`);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'שגיאה בעיבוד החשבונית');
     } finally {
@@ -247,7 +247,7 @@ export default function InvoicesPage() {
                 {invoices.data.map((inv) => (
                   <tr
                     key={inv._id}
-                    onClick={() => navigate(`/invoices/${inv._id}`)}
+                    onClick={() => navigate(`/app/invoices/${inv._id}`)}
                     className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${inv.overchargeCount > 0 ? 'bg-danger-50/30' : ''}`}
                   >
                     <td className="px-4 py-3 text-sm" dir="ltr">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</td>
@@ -276,7 +276,7 @@ export default function InvoicesPage() {
             {invoices.data.map((inv) => (
               <div
                 key={inv._id}
-                onClick={() => navigate(`/invoices/${inv._id}`)}
+                onClick={() => navigate(`/app/invoices/${inv._id}`)}
                 className={`card !p-4 cursor-pointer active:bg-gray-50 ${inv.overchargeCount > 0 ? 'border-danger-200 bg-danger-50/20' : ''}`}
               >
                 <div className="flex justify-between items-start mb-2">

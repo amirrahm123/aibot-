@@ -15,9 +15,9 @@ export default function OnboardingChecklist() {
 
   const items = [
     { key: 'registered', label: 'נרשמת למערכת', done: steps.registered, action: null },
-    { key: 'addedSupplier', label: 'הוספת ספק ראשון', done: steps.addedSupplier, action: () => navigate('/suppliers') },
-    { key: 'addedAgreement', label: 'הגדרת מחיר מוסכם לפריט', done: steps.addedAgreement, action: () => navigate('/agreements') },
-    { key: 'uploadedInvoice', label: 'העלית חשבונית ראשונה', done: steps.uploadedInvoice, action: () => navigate('/invoices') },
+    { key: 'addedSupplier', label: 'הוספת ספק ראשון', done: steps.addedSupplier, action: () => navigate('/app/suppliers') },
+    { key: 'addedAgreement', label: 'הגדרת מחיר מוסכם לפריט', done: steps.addedAgreement, action: () => navigate('/app/agreements') },
+    { key: 'uploadedInvoice', label: 'העלית חשבונית ראשונה', done: steps.uploadedInvoice, action: () => navigate('/app/invoices') },
   ];
 
   if (collapsed) {

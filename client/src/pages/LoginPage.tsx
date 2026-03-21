@@ -39,7 +39,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.verifyLogin({ loginToken, otpCode });
       setAuth(res.token, res.user);
-      navigate('/dashboard');
+      navigate('/app/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'קוד שגוי');
     } finally {

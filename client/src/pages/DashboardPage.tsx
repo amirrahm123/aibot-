@@ -64,7 +64,16 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">דשבורד</h1>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">דשבורד</h1>
+        <button
+          onClick={() => navigate('/app/invoices')}
+          className="bg-primary-500 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-primary-600 transition-colors shadow-lg shadow-primary-500/25 flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+          סרוק חשבונית עם AI
+        </button>
+      </div>
 
       {/* Stats cards — 4 cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -130,7 +139,7 @@ export default function DashboardPage() {
       <div className="card">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">חשבוניות אחרונות</h2>
-          <button onClick={() => navigate('/invoices')} className="text-sm text-primary-500 hover:underline">
+          <button onClick={() => navigate('/app/invoices')} className="text-sm text-primary-500 hover:underline">
             הצג הכל →
           </button>
         </div>
@@ -138,7 +147,7 @@ export default function DashboardPage() {
           <div className="text-center py-8">
             <div className="text-4xl mb-3">📄</div>
             <p className="text-gray-500 text-sm">אין חשבוניות עדיין</p>
-            <button onClick={() => navigate('/invoices')} className="text-sm text-primary-500 hover:underline mt-2">
+            <button onClick={() => navigate('/app/invoices')} className="text-sm text-primary-500 hover:underline mt-2">
               העלה חשבונית ראשונה →
             </button>
           </div>
@@ -161,7 +170,7 @@ export default function DashboardPage() {
                   {recentInvoices.map((inv) => (
                     <tr
                       key={inv._id}
-                      onClick={() => navigate(`/invoices/${inv._id}`)}
+                      onClick={() => navigate(`/app/invoices/${inv._id}`)}
                       className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${inv.overchargeCount > 0 ? 'bg-danger-50/20' : ''}`}
                     >
                       <td className="py-2.5 text-sm" dir="ltr">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</td>
@@ -193,7 +202,7 @@ export default function DashboardPage() {
               {recentInvoices.map((inv) => (
                 <div
                   key={inv._id}
-                  onClick={() => navigate(`/invoices/${inv._id}`)}
+                  onClick={() => navigate(`/app/invoices/${inv._id}`)}
                   className={`flex justify-between items-center py-3 px-1 border-b border-gray-100 cursor-pointer active:bg-gray-50`}
                 >
                   <div>

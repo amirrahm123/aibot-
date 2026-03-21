@@ -76,8 +76,8 @@ router.post('/create-checkout-session', authMiddleware, async (req: AuthRequest,
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/pricing?success=true`,
-      cancel_url: `${clientUrl}/pricing?canceled=true`,
+      success_url: `${clientUrl}/app/pricing?success=true`,
+      cancel_url: `${clientUrl}/app/pricing?canceled=true`,
       metadata: { userId: user._id.toString(), planId },
     });
 

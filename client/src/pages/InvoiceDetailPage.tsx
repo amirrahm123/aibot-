@@ -36,7 +36,7 @@ export default function InvoiceDetailPage() {
       setInvoice(data);
     } catch {
       toast.error('שגיאה בטעינת חשבונית');
-      navigate('/invoices');
+      navigate('/app/invoices');
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function InvoiceDetailPage() {
     try {
       await invoicesApi.deleteInvoice(id!);
       toast.success('חשבונית נמחקה');
-      navigate('/invoices');
+      navigate('/app/invoices');
     } catch {
       toast.error('שגיאה במחיקה');
     }
@@ -141,7 +141,7 @@ export default function InvoiceDetailPage() {
   return (
     <div>
       {/* Back button */}
-      <button onClick={() => navigate('/invoices')} className="text-sm text-primary-500 hover:underline mb-4">
+      <button onClick={() => navigate('/app/invoices')} className="text-sm text-primary-500 hover:underline mb-4">
         → חזרה לחשבוניות
       </button>
 

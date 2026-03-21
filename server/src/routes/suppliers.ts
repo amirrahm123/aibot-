@@ -56,8 +56,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     const { name, contactName, contactPhone, email, category, notes } = req.body;
-    if (!name) {
-      res.status(400).json({ error: 'שם ספק נדרש' });
+    if (!name || name.trim().length < 2) {
+      res.status(400).json({ error: 'שם ספק חייב להכיל לפחות 2 תווים' });
+      return;
+    }
+    if (contactName && contactName.trim().length < 2) {
+      res.status(400).json({ error: 'שם איש קשר חייב להכיל לפחות 2 תווים' });
       return;
     }
     const supplier = await Supplier.create({

@@ -197,6 +197,8 @@ export default function SuppliersPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="input-field"
+                  placeholder='לדוגמה: ירקות השרון בע"מ'
+                  minLength={2}
                   required
                 />
               </div>
@@ -220,6 +222,8 @@ export default function SuppliersPage() {
                     value={form.contactName}
                     onChange={(e) => setForm({ ...form, contactName: e.target.value })}
                     className="input-field"
+                    placeholder="לדוגמה: יוסי כהן"
+                    minLength={2}
                   />
                 </div>
                 <div>
@@ -229,6 +233,7 @@ export default function SuppliersPage() {
                     value={form.contactPhone}
                     onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
                     className="input-field"
+                    placeholder="050-1234567"
                     dir="ltr"
                   />
                 </div>
@@ -240,6 +245,7 @@ export default function SuppliersPage() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="input-field"
+                  placeholder="supplier@example.com"
                   dir="ltr"
                 />
               </div>
@@ -249,6 +255,7 @@ export default function SuppliersPage() {
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   className="input-field"
+                  placeholder="הערות נוספות על הספק..."
                   rows={2}
                 />
               </div>
@@ -338,17 +345,35 @@ export default function SuppliersPage() {
               {/* Actions */}
               <div className="flex justify-between items-center mt-3 pt-3 border-t">
                 <button
-                  onClick={() => navigate(`/agreements?supplierId=${s._id}`)}
+                  onClick={() => navigate(`/app/agreements?supplierId=${s._id}`)}
                   className="text-sm text-primary-500 hover:underline"
                 >
                   הסכמי מחיר →
                 </button>
-                <div className="flex gap-3">
-                  <button onClick={() => handleEdit(s)} className="text-sm text-primary-500 hover:underline">ערוך</button>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleEdit(s)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-primary-500 hover:bg-primary-50 transition-colors"
+                    title="ערוך"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </button>
                   {s.isActive ? (
-                    <button onClick={() => handleDelete(s._id)} className="text-sm text-danger-500 hover:underline">השבת</button>
+                    <button
+                      onClick={() => handleDelete(s._id)}
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-danger-500 hover:bg-danger-50 transition-colors"
+                      title="השבת ספק"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    </button>
                   ) : (
-                    <button onClick={() => handleReactivate(s._id)} className="text-sm text-success-500 hover:underline">הפעל</button>
+                    <button
+                      onClick={() => handleReactivate(s._id)}
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-success-500 hover:bg-green-50 transition-colors"
+                      title="הפעל מחדש"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
                   )}
                 </div>
               </div>

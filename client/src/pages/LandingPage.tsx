@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 const features = [
   {
@@ -47,6 +48,7 @@ const plans = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   return (
     <div className="min-h-screen bg-white" dir="rtl">
@@ -55,12 +57,20 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
           <h1 className="text-xl font-bold text-primary-500">שומר המחיר</h1>
           <div className="flex gap-3">
-            <button onClick={() => navigate('/login')} className="text-sm font-medium text-gray-600 hover:text-gray-900 px-4 py-2">
-              התחבר
-            </button>
-            <button onClick={() => navigate('/register')} className="text-sm font-medium bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
-              הרשמה
-            </button>
+            {user ? (
+              <button onClick={() => navigate('/app/dashboard')} className="text-sm font-medium bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                לדשבורד →
+              </button>
+            ) : (
+              <>
+                <button onClick={() => navigate('/login')} className="text-sm font-medium text-gray-600 hover:text-gray-900 px-4 py-2">
+                  התחבר
+                </button>
+                <button onClick={() => navigate('/register')} className="text-sm font-medium bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                  הרשמה
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>

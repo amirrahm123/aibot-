@@ -69,11 +69,45 @@ app.get('/api/health', (_req, res) => {
 
 // Serve React client in production
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.resolve(process.cwd(), 'public');
-  console.log('Serving static files from:', clientDist);
+  const possiblePaths = [
+    path.resolve(process.cwd(), 'public'),
+    path.resolve(process.cwd(), '../client/dist'),
+    path.resolve(__dirname, '../../public'),
+    path.resolve(__dirname, '../../../../client/dist'),
+    '/opt/render/project/src/client/dist',
+    '/opt/render/project/src/server/public',
+  ];
+
+  let clientDist = possiblePaths[0];
+  for (const p of possiblePaths) {
+    const hasIndex = fs.existsSync(path.join(p, 'index.html'));
+    console.log(`[STATIC] ${p} -> index.html exists: ${hasIndex}`);
+    if (hasIndex) {
+      clientDist = p;
+      break;
+    }
+  }
+
+  console.log('[STATIC] Using:', clientDist);
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+    const indexPath = path.join(clientDist, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // Debug endpoint so we can see what's going on
+      res.status(500).json({
+        error: 'index.html not found',
+        cwd: process.cwd(),
+        __dirname,
+        checked: possiblePaths.map(p => ({
+          path: p,
+          exists: fs.existsSync(p),
+          hasIndex: fs.existsSync(path.join(p, 'index.html')),
+          files: fs.existsSync(p) ? fs.readdirSync(p).slice(0, 10) : [],
+        })),
+      });
+    }
   });
 }
 

@@ -69,11 +69,41 @@ app.get('/api/health', (_req, res) => {
 
 // Serve React client in production
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.resolve(process.cwd(), '../client/dist');
+  // Try multiple possible paths for the client build
+  const candidates = [
+    path.resolve(process.cwd(), '../client/dist'),
+    path.resolve(process.cwd(), 'client/dist'),
+    path.resolve(__dirname, '../../client/dist'),
+    path.resolve(__dirname, '../../../client/dist'),
+    path.resolve(__dirname, '../../../../client/dist'),
+    '/opt/render/project/src/client/dist',
+  ];
+
+  let clientDist = candidates[0];
+  for (const candidate of candidates) {
+    console.log(`Checking: ${candidate} -> exists: ${fs.existsSync(candidate)}`);
+    if (fs.existsSync(path.join(candidate, 'index.html'))) {
+      clientDist = candidate;
+      break;
+    }
+  }
+
   console.log('Serving static files from:', clientDist);
+  console.log('index.html exists:', fs.existsSync(path.join(clientDist, 'index.html')));
+
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+    const indexPath = path.join(clientDist, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).json({
+        error: 'Client build not found',
+        cwd: process.cwd(),
+        __dirname,
+        candidates: candidates.map(c => ({ path: c, exists: fs.existsSync(c) })),
+      });
+    }
   });
 }
 

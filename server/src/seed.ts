@@ -128,7 +128,6 @@ async function seed() {
     passwordHash,
     businessName: 'עסק לדוגמה',
     ownerName: 'משתמש בדיקה',
-    phone: '0501234567',
   });
   console.log(`Created test user: testbot (ID: ${user._id})`);
 
@@ -159,7 +158,6 @@ async function seed() {
 
   console.log('\nSeed complete!');
   console.log('Login with: username=testbot, password=Test1234!');
-  console.log('Phone: 0501234567 (use MOCK_SMS=true for dev)');
 
   await mongoose.disconnect();
 }

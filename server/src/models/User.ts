@@ -8,7 +8,7 @@ export interface IUserDocument extends Document {
   passwordHash: string;
   businessName: string;
   ownerName: string;
-  phone: string; // Israeli format: 05X-XXXXXXX
+  phone?: string;
   plan: PlanType;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
@@ -22,7 +22,7 @@ const UserSchema = new Schema<IUserDocument>({
   passwordHash: { type: String, required: true },
   businessName: { type: String, required: true, trim: true },
   ownerName: { type: String, required: true, trim: true },
-  phone: { type: String, required: true, trim: true },
+  phone: { type: String, trim: true },
   plan: { type: String, enum: ['free', 'pro', 'business'], default: 'free' },
   stripeCustomerId: { type: String },
   stripeSubscriptionId: { type: String },

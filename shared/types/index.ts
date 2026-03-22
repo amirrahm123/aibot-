@@ -6,7 +6,7 @@ export interface IUser {
   username: string;
   businessName: string;
   ownerName: string;
-  phone: string;
+  phone?: string;
   plan: PlanType;
   planExpiresAt?: string;
   createdAt: string;
@@ -17,39 +17,11 @@ export interface RegisterRequest {
   password: string;
   businessName: string;
   ownerName: string;
-  phone: string;
-}
-
-export interface RegisterOtpSentResponse {
-  message: string;
-  phone: string;
-  dev_otp?: string; // only in dev/mock mode
-}
-
-export interface VerifyRegisterRequest {
-  username: string;
-  password: string;
-  businessName: string;
-  ownerName: string;
-  phone: string;
-  otpCode: string;
 }
 
 export interface LoginRequest {
   username: string;
   password: string;
-}
-
-export interface LoginOtpSentResponse {
-  message: string;
-  maskedPhone: string;
-  loginToken: string;
-  dev_otp?: string; // only in dev/mock mode
-}
-
-export interface VerifyLoginRequest {
-  loginToken: string;
-  otpCode: string;
 }
 
 export interface AuthResponse {

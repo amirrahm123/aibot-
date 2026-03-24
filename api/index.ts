@@ -11,6 +11,8 @@ import agreementRoutes from '../server/src/routes/agreements';
 import invoiceRoutes from '../server/src/routes/invoices';
 import dashboardRoutes from '../server/src/routes/dashboard';
 import paymentRoutes from '../server/src/routes/payments';
+import gmailRoutes from '../server/src/routes/gmail';
+import webhookRoutes from '../server/src/routes/webhooks';
 
 const app = express();
 
@@ -48,6 +50,8 @@ app.use('/api/agreements', agreementRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/gmail', gmailRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

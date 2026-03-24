@@ -1,5 +1,5 @@
 import api from './client';
-import { IInvoice, PaginatedResponse, DashboardStats } from '@shared/types';
+import { IInvoice, PaginatedResponse, DashboardStats, InvoiceSource } from '@shared/types';
 
 export async function uploadInvoice(file: File, supplierId: string): Promise<IInvoice> {
   const formData = new FormData();
@@ -11,6 +11,11 @@ export async function uploadInvoice(file: File, supplierId: string): Promise<IIn
   return res.data;
 }
 
+export async function approveInvoice(id: string): Promise<IInvoice> {
+  const res = await api.post<IInvoice>(`/invoices/${id}/approve`);
+  return res.data;
+}
+
 export async function getInvoices(params: {
   page?: number;
   limit?: number;
@@ -18,6 +23,8 @@ export async function getInvoices(params: {
   dateFrom?: string;
   dateTo?: string;
   overchargeOnly?: boolean;
+  pendingOnly?: boolean;
+  source?: InvoiceSource;
   search?: string;
 } = {}): Promise<PaginatedResponse<IInvoice>> {
   const res = await api.get<PaginatedResponse<IInvoice>>('/invoices', { params });

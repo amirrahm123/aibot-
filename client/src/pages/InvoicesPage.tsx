@@ -2,9 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { IInvoice, ISupplier, PaginatedResponse } from '@shared/types';
+import { IInvoice, ISupplier, PaginatedResponse, InvoiceSource } from '@shared/types';
 import * as invoicesApi from '../api/invoices';
 import * as suppliersApi from '../api/suppliers';
+
+const SOURCE_BADGES: Record<InvoiceSource, { label: string; className: string }> = {
+  manual: { label: '📎 ידני', className: 'bg-gray-100 text-gray-700' },
+  gmail: { label: '📧 Gmail', className: 'bg-blue-100 text-blue-700' },
+  whatsapp: { label: '💬 WhatsApp', className: 'bg-green-100 text-green-700' },
+};
 import { useOnboardingStore } from '../store/onboardingStore';
 import OnboardingTooltip from '../components/OnboardingTooltip';
 
@@ -23,6 +29,7 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [filterSupplier, setFilterSupplier] = useState('');
   const [overchargeOnly, setOverchargeOnly] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { markStep, steps } = useOnboardingStore();
@@ -31,7 +38,7 @@ export default function InvoicesPage() {
   const loadData = async () => {
     try {
       const [invs, sups] = await Promise.all([
-        invoicesApi.getInvoices({ page, supplierId: filterSupplier || undefined, overchargeOnly, search: search || undefined }),
+        invoicesApi.getInvoices({ page, supplierId: filterSupplier || undefined, overchargeOnly, pendingOnly, search: search || undefined }),
         suppliersApi.getSuppliers(),
       ]);
       setInvoices(invs);
@@ -49,7 +56,7 @@ export default function InvoicesPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, [page, filterSupplier, overchargeOnly]);
+  useEffect(() => { loadData(); }, [page, filterSupplier, overchargeOnly, pendingOnly]);
 
   const handleSearch = () => { setPage(1); loadData(); };
 
@@ -96,8 +103,26 @@ export default function InvoicesPage() {
     switch (status) {
       case 'done': return <span className="badge-ok">הושלם</span>;
       case 'processing': return <span className="badge-processing">מעבד...</span>;
+      case 'pending_approval': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">ממתין לאישור</span>;
       case 'error': return <span className="badge-overcharge">שגיאה</span>;
       default: return null;
+    }
+  };
+
+  const sourceBadge = (source?: InvoiceSource) => {
+    if (!source || source === 'manual') return null;
+    const badge = SOURCE_BADGES[source];
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>{badge.label}</span>;
+  };
+
+  const handleApprove = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    try {
+      await invoicesApi.approveInvoice(invoiceId);
+      toast.success('חשבונית אושרה');
+      loadData();
+    } catch {
+      toast.error('שגיאה באישור חשבונית');
     }
   };
 
@@ -157,6 +182,10 @@ export default function InvoicesPage() {
         <label className="flex items-center gap-2 text-sm min-h-[44px]">
           <input type="checkbox" checked={overchargeOnly} onChange={(e) => { setOverchargeOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
           חריגות בלבד
+        </label>
+        <label className="flex items-center gap-2 text-sm min-h-[44px]">
+          <input type="checkbox" checked={pendingOnly} onChange={(e) => { setPendingOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
+          ממתינים לאישור
         </label>
       </div>
 
@@ -237,11 +266,13 @@ export default function InvoicesPage() {
                 <tr className="border-b border-gray-200 text-sm text-gray-500">
                   <th className="text-right px-4 py-3">תאריך</th>
                   <th className="text-right px-4 py-3">ספק</th>
+                  <th className="text-right px-4 py-3">מקור</th>
                   <th className="text-right px-4 py-3">מס׳ חשבונית</th>
                   <th className="text-right px-4 py-3">סה״כ</th>
                   <th className="text-right px-4 py-3">חריגה</th>
                   <th className="text-right px-4 py-3">פריטים חורגים</th>
                   <th className="text-right px-4 py-3">סטטוס</th>
+                  <th className="text-right px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -249,13 +280,17 @@ export default function InvoicesPage() {
                   <tr
                     key={inv._id}
                     onClick={() => navigate(`/app/invoices/${inv._id}`)}
-                    className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${inv.overchargeCount > 0 ? 'bg-danger-50/30' : ''}`}
+                    className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                      inv.status === 'pending_approval' ? 'bg-yellow-50' :
+                      inv.overchargeCount > 0 ? 'bg-danger-50/30' : ''
+                    }`}
                   >
                     <td className="px-4 py-3 text-sm" dir="ltr">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</td>
                     <td className="px-4 py-3 text-sm font-medium">{inv.supplierName || '—'}</td>
+                    <td className="px-4 py-3 text-sm">{sourceBadge(inv.source)}</td>
                     <td className="px-4 py-3 text-sm" dir="ltr">{inv.invoiceNumber || '—'}</td>
                     <td className="px-4 py-3 text-sm" dir="ltr">{formatAgorot(inv.totalInvoiceAmount)}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-danger-500" dir="ltr">
+                    <td className={`px-4 py-3 text-sm font-medium ${inv.totalOverchargeAmount > 0 ? 'text-red-600' : 'text-gray-400'}`} dir="ltr">
                       {inv.totalOverchargeAmount > 0 ? formatAgorot(inv.totalOverchargeAmount) : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -266,6 +301,16 @@ export default function InvoicesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">{statusBadge(inv.status)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {inv.status === 'pending_approval' && (
+                        <button
+                          onClick={(e) => handleApprove(e, inv._id)}
+                          className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+                        >
+                          אשר
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -278,12 +323,18 @@ export default function InvoicesPage() {
               <div
                 key={inv._id}
                 onClick={() => navigate(`/app/invoices/${inv._id}`)}
-                className={`card !p-4 cursor-pointer active:bg-gray-50 ${inv.overchargeCount > 0 ? 'border-danger-200 bg-danger-50/20' : ''}`}
+                className={`card !p-4 cursor-pointer active:bg-gray-50 ${
+                  inv.status === 'pending_approval' ? 'border-yellow-300 bg-yellow-50/40' :
+                  inv.overchargeCount > 0 ? 'border-danger-200 bg-danger-50/20' : ''
+                }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-semibold text-base">{inv.supplierName || '—'}</h3>
-                    <p className="text-sm text-gray-500" dir="ltr">{inv.invoiceNumber || '—'}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-sm text-gray-500" dir="ltr">{inv.invoiceNumber || '—'}</p>
+                      {sourceBadge(inv.source)}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {statusBadge(inv.status)}
@@ -295,10 +346,20 @@ export default function InvoicesPage() {
                 </div>
                 {inv.overchargeCount > 0 && (
                   <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-gray-100">
-                    <span className="text-danger-500 font-medium">
+                    <span className={`font-medium ${inv.totalOverchargeAmount > 0 ? 'text-red-600' : 'text-danger-500'}`}>
                       {inv.overchargeCount} חריגות
                     </span>
-                    <span className="text-danger-500 font-bold" dir="ltr">{formatAgorot(inv.totalOverchargeAmount)}</span>
+                    <span className="text-red-600 font-bold" dir="ltr">{formatAgorot(inv.totalOverchargeAmount)}</span>
+                  </div>
+                )}
+                {inv.status === 'pending_approval' && (
+                  <div className="mt-3 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={(e) => handleApprove(e, inv._id)}
+                      className="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                    >
+                      אשר חשבונית
+                    </button>
                   </div>
                 )}
               </div>

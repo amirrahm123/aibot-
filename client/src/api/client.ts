@@ -1,11 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (
-    import.meta.env.PROD
-      ? 'https://priceguard-api-3r4o.onrender.com/api'
-      : '/api'
-  ),
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
 // Attach JWT token to every request

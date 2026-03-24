@@ -14,6 +14,18 @@ export interface ILineItemSubdoc {
   matchStatus: 'ok' | 'overcharge' | 'no_agreement' | 'needs_review';
 }
 
+export interface IProcessingLogSubdoc {
+  source: 'manual' | 'gmail' | 'whatsapp';
+  receivedAt: Date;
+  senderEmail?: string;
+  senderPhone?: string;
+  rawFileUrl?: string;
+  extractionStatus: 'pending' | 'success' | 'error';
+  errorMessage?: string;
+  gmailMessageId?: string;
+  emailSubject?: string;
+}
+
 export interface IInvoiceDocument extends Document {
   userId: Types.ObjectId;
   supplierId: Types.ObjectId;
@@ -21,12 +33,16 @@ export interface IInvoiceDocument extends Document {
   invoiceDate?: Date;
   uploadedAt: Date;
   fileUrl: string;
-  status: 'processing' | 'done' | 'error';
+  status: 'processing' | 'done' | 'error' | 'pending_approval';
+  source: 'manual' | 'gmail' | 'whatsapp';
   rawExtractedText?: string;
   lineItems: ILineItemSubdoc[];
   totalInvoiceAmount: number;    // agorot
   totalOverchargeAmount: number; // agorot
   overchargeCount: number;
+  processingLog?: IProcessingLogSubdoc;
+  approvedAt?: Date;
+  approvedBy?: Types.ObjectId;
 }
 
 const LineItemSchema = new Schema<ILineItemSubdoc>({
@@ -43,19 +59,35 @@ const LineItemSchema = new Schema<ILineItemSubdoc>({
   matchStatus: { type: String, enum: ['ok', 'overcharge', 'no_agreement', 'needs_review'], default: 'no_agreement' },
 }, { _id: false });
 
+const ProcessingLogSchema = new Schema<IProcessingLogSubdoc>({
+  source: { type: String, enum: ['manual', 'gmail', 'whatsapp'], required: true },
+  receivedAt: { type: Date, default: Date.now },
+  senderEmail: String,
+  senderPhone: String,
+  rawFileUrl: String,
+  extractionStatus: { type: String, enum: ['pending', 'success', 'error'], default: 'pending' },
+  errorMessage: String,
+  gmailMessageId: String,
+  emailSubject: String,
+}, { _id: false });
+
 const InvoiceSchema = new Schema<IInvoiceDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   supplierId: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
   invoiceNumber: String,
   invoiceDate: Date,
   uploadedAt: { type: Date, default: Date.now },
-  fileUrl: { type: String, required: true },
-  status: { type: String, enum: ['processing', 'done', 'error'], default: 'processing' },
+  fileUrl: { type: String, default: '' },
+  status: { type: String, enum: ['processing', 'done', 'error', 'pending_approval'], default: 'processing' },
+  source: { type: String, enum: ['manual', 'gmail', 'whatsapp'], default: 'manual' },
   rawExtractedText: String,
   lineItems: [LineItemSchema],
   totalInvoiceAmount: { type: Number, default: 0 },
   totalOverchargeAmount: { type: Number, default: 0 },
   overchargeCount: { type: Number, default: 0 },
+  processingLog: ProcessingLogSchema,
+  approvedAt: Date,
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 });
 
 InvoiceSchema.index({ userId: 1, uploadedAt: -1 });

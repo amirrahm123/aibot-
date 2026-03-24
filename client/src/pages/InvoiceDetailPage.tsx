@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { IInvoice, MatchStatus } from '@shared/types';
+import { IInvoice, MatchStatus, InvoiceSource } from '@shared/types';
 import * as invoicesApi from '../api/invoices';
+
+const SOURCE_LABELS: Record<InvoiceSource, string> = {
+  manual: '📎 העלאה ידנית',
+  gmail: '📧 Gmail',
+  whatsapp: '💬 WhatsApp',
+};
 
 function formatAgorot(agorot: number): string {
   return `₪${(agorot / 100).toFixed(2)}`;
@@ -29,6 +35,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<IInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [reprocessing, setReprocessing] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   const loadInvoice = async () => {
     try {
@@ -54,6 +61,19 @@ export default function InvoiceDetailPage() {
       toast.error(err.response?.data?.error || 'שגיאה');
     } finally {
       setReprocessing(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      const data = await invoicesApi.approveInvoice(id!);
+      setInvoice(data);
+      toast.success('חשבונית אושרה בהצלחה');
+    } catch {
+      toast.error('שגיאה באישור חשבונית');
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -145,6 +165,26 @@ export default function InvoiceDetailPage() {
         → חזרה לחשבוניות
       </button>
 
+      {/* Pending approval banner */}
+      {invoice.status === 'pending_approval' && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-yellow-800">חשבונית ממתינה לאישור</p>
+            <p className="text-sm text-yellow-700 mt-1">
+              התקבלה אוטומטית דרך {SOURCE_LABELS[invoice.source || 'manual']}
+              {invoice.processingLog?.emailSubject && ` — "${invoice.processingLog.emailSubject}"`}
+            </p>
+          </div>
+          <button
+            onClick={handleApprove}
+            disabled={approving}
+            className="bg-green-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-600 transition-colors text-sm w-full md:w-auto min-h-[44px]"
+          >
+            {approving ? 'מאשר...' : 'אשר חשבונית'}
+          </button>
+        </div>
+      )}
+
       {/* Overcharge alert banner */}
       {hasOvercharges && (
         <div className="bg-danger-500 text-white rounded-xl p-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -168,7 +208,21 @@ export default function InvoiceDetailPage() {
               {invoice.invoiceNumber && <span>חשבונית מס׳ {invoice.invoiceNumber}</span>}
               {invoice.invoiceDate && <span>{new Date(invoice.invoiceDate).toLocaleDateString('he-IL')}</span>}
               <span>סה״כ: <strong dir="ltr">{formatAgorot(invoice.totalInvoiceAmount)}</strong></span>
+              {invoice.source && invoice.source !== 'manual' && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  invoice.source === 'gmail' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                }`}>
+                  {SOURCE_LABELS[invoice.source]}
+                </span>
+              )}
             </div>
+            {invoice.processingLog && invoice.source !== 'manual' && (
+              <div className="text-xs text-gray-400 mt-2">
+                {invoice.processingLog.senderEmail && <span>מ: {invoice.processingLog.senderEmail}</span>}
+                {invoice.processingLog.senderPhone && <span>מ: {invoice.processingLog.senderPhone}</span>}
+                {invoice.processingLog.receivedAt && <span> · התקבל {new Date(invoice.processingLog.receivedAt).toLocaleString('he-IL')}</span>}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
             <button onClick={handleExportReport} className="btn-secondary text-sm">ייצוא דו״ח</button>

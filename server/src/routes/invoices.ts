@@ -120,6 +120,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     if (req.query.supplierId) filter.supplierId = req.query.supplierId;
     if (req.query.overchargeOnly === 'true') filter.overchargeCount = { $gt: 0 };
+    if (req.query.pendingOnly === 'true') filter.status = 'pending_approval';
+    if (req.query.source) filter.source = req.query.source;
     if (req.query.dateFrom || req.query.dateTo) {
       filter.uploadedAt = {};
       if (req.query.dateFrom) filter.uploadedAt.$gte = new Date(req.query.dateFrom as string);
@@ -243,6 +245,34 @@ router.get('/:id/report', async (req: AuthRequest, res: Response) => {
     res.send(report);
   } catch {
     res.status(500).json({ error: 'שגיאה ביצירת דו"ח' });
+  }
+});
+
+// POST /api/invoices/:id/approve
+router.post('/:id/approve', async (req: AuthRequest, res: Response) => {
+  try {
+    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.userId });
+    if (!invoice) {
+      res.status(404).json({ error: 'חשבונית לא נמצאה' });
+      return;
+    }
+    if (invoice.status !== 'pending_approval') {
+      res.status(400).json({ error: 'חשבונית זו אינה ממתינה לאישור' });
+      return;
+    }
+
+    invoice.status = 'done';
+    invoice.approvedAt = new Date();
+    invoice.approvedBy = req.userId as any;
+    await invoice.save();
+
+    const supplier = await Supplier.findById(invoice.supplierId).lean();
+    const result: any = invoice.toObject();
+    result.supplierName = supplier?.name || '';
+
+    res.json(result);
+  } catch {
+    res.status(500).json({ error: 'שגיאה באישור חשבונית' });
   }
 });
 

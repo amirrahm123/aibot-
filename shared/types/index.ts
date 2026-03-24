@@ -105,8 +105,21 @@ export interface CreateAgreementRequest {
 }
 
 // ===== Invoice =====
-export type InvoiceStatus = 'processing' | 'done' | 'error';
+export type InvoiceStatus = 'processing' | 'done' | 'error' | 'pending_approval';
 export type MatchStatus = 'ok' | 'overcharge' | 'no_agreement' | 'needs_review';
+export type InvoiceSource = 'manual' | 'gmail' | 'whatsapp';
+
+export interface IProcessingLog {
+  source: InvoiceSource;
+  receivedAt: string;
+  senderEmail?: string;
+  senderPhone?: string;
+  rawFileUrl?: string;
+  extractionStatus: 'pending' | 'success' | 'error';
+  errorMessage?: string;
+  gmailMessageId?: string;
+  emailSubject?: string;
+}
 
 export interface ILineItem {
   productName: string;
@@ -132,11 +145,15 @@ export interface IInvoice {
   uploadedAt: string;
   fileUrl: string;
   status: InvoiceStatus;
+  source: InvoiceSource;
   rawExtractedText?: string;
   lineItems: ILineItem[];
   totalInvoiceAmount: number;   // agorot
   totalOverchargeAmount: number; // agorot
   overchargeCount: number;
+  processingLog?: IProcessingLog;
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 // ===== AI Extraction (raw from Claude) =====
@@ -189,5 +206,28 @@ export interface PaginationQuery {
   dateFrom?: string;
   dateTo?: string;
   overchargeOnly?: boolean;
+  pendingOnly?: boolean;
+  source?: InvoiceSource;
   search?: string;
+}
+
+// ===== Gmail Integration =====
+export interface IGmailToken {
+  _id: string;
+  userId: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  watchExpiration?: string;
+  historyId?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface GmailConnectionStatus {
+  connected: boolean;
+  email?: string;
+  watchActive?: boolean;
+  watchExpiration?: string;
 }

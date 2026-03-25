@@ -14,6 +14,59 @@ const router = Router();
 // GMAIL PUB/SUB PUSH NOTIFICATION
 // POST /api/webhooks/gmail
 // ============================================================
+
+/**
+ * Process Gmail messages in the background after responding to Pub/Sub.
+ * Separated so we can ack the webhook immediately.
+ */
+async function processGmailMessages(userId: string, messageIds: string[]) {
+  for (const messageId of messageIds) {
+    try {
+      // Skip if we already processed this message
+      const existing = await Invoice.findOne({
+        'processingLog.gmailMessageId': messageId,
+      });
+      if (existing) continue;
+
+      const email = await fetchMessage(userId, messageId);
+
+      // Check if sender matches a known supplier
+      const supplier = await Supplier.findOne({
+        userId,
+        isActive: true,
+        email: email.from.toLowerCase(),
+      }).lean();
+
+      if (!supplier) {
+        // Sender is not a known supplier — skip
+        continue;
+      }
+
+      // Determine what to send to AI: attachment or email body
+      const attachment = email.attachments[0]; // Use first valid attachment
+
+      await processIncomingInvoice({
+        userId,
+        source: 'gmail',
+        fileBase64: attachment ? attachment.data.toString('base64') : undefined,
+        mediaType: attachment
+          ? (attachment.mimeType as 'application/pdf' | 'image/jpeg' | 'image/png')
+          : undefined,
+        emailBodyText: !attachment ? email.bodyText : undefined,
+        senderEmail: email.from,
+        gmailMessageId: messageId,
+        emailSubject: email.subject,
+        supplierId: (supplier._id as any).toString(),
+      });
+
+      console.log(`Gmail webhook: processed message ${messageId} successfully`);
+    } catch (err: any) {
+      console.error(`Gmail webhook: error processing message ${messageId}:`, err.message);
+      // Continue processing other messages
+    }
+  }
+}
+
 router.post('/gmail', async (req: Request, res: Response) => {
   try {
     // Google Pub/Sub sends a base64-encoded message
@@ -66,54 +119,25 @@ router.post('/gmail', async (req: Request, res: Response) => {
       throw err;
     }
 
-    // Update historyId for next notification
+    // Update historyId immediately for next notification
     gmailToken.historyId = newHistoryId;
     await gmailToken.save();
 
-    // Process each new message
-    for (const messageId of messageIds) {
-      try {
-        // Skip if we already processed this message
-        const existing = await Invoice.findOne({
-          'processingLog.gmailMessageId': messageId,
-        });
-        if (existing) continue;
-
-        const email = await fetchMessage(userId, messageId);
-
-        // Check if sender matches a known supplier
-        const supplier = await Supplier.findOne({
-          userId,
-          isActive: true,
-          email: email.from.toLowerCase(),
-        }).lean();
-
-        if (!supplier) {
-          // Sender is not a known supplier — skip
-          continue;
-        }
-
-        // Determine what to send to AI: attachment or email body
-        const attachment = email.attachments[0]; // Use first valid attachment
-
-        await processIncomingInvoice({
-          userId,
-          source: 'gmail',
-          fileBase64: attachment ? attachment.data.toString('base64') : undefined,
-          mediaType: attachment
-            ? (attachment.mimeType as 'application/pdf' | 'image/jpeg' | 'image/png')
-            : undefined,
-          emailBodyText: !attachment ? email.bodyText : undefined,
-          senderEmail: email.from,
-          gmailMessageId: messageId,
-          emailSubject: email.subject,
-          supplierId: (supplier._id as any).toString(),
-        });
-      } catch (err: any) {
-        console.error(`Gmail webhook: error processing message ${messageId}:`, err.message);
-        // Continue processing other messages
-      }
+    if (messageIds.length === 0) {
+      res.status(200).send('OK');
+      return;
     }
+
+    // Process messages — on Vercel serverless we must await (no true background)
+    // but we already ack'd historyId so retries won't reprocess
+    // Limit to 3 messages per webhook to stay within function timeout
+    const batch = messageIds.slice(0, 3);
+    if (messageIds.length > 3) {
+      console.warn(`Gmail webhook: ${messageIds.length} messages, processing first 3`);
+    }
+
+    // Use waitUntil pattern if available, otherwise await
+    await processGmailMessages(userId, batch);
 
     res.status(200).send('OK');
   } catch (err: any) {

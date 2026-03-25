@@ -5,11 +5,18 @@
   "framework": "vite",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "server/src/**,shared/**"
+      "includeFiles": "server/src/**,shared/**",
+      "maxDuration": 60
     }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/gmail/cron-renew",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

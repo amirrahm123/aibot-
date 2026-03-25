@@ -103,4 +103,41 @@ router.post('/renew-watch', authMiddleware, async (req: AuthRequest, res: Respon
   }
 });
 
+// GET /api/gmail/cron-renew — auto-renew all expiring watches (called by Vercel Cron)
+router.get('/cron-renew', async (req: any, res: Response) => {
+  try {
+    // Verify cron secret to prevent unauthorized calls
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Find all active tokens with watch expiring in the next 2 days (or already expired)
+    const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    const tokens = await GmailToken.find({
+      isActive: true,
+      $or: [
+        { watchExpiration: { $lt: twoDaysFromNow } },
+        { watchExpiration: null },
+      ],
+    });
+
+    const results: { email: string; status: string }[] = [];
+    for (const token of tokens) {
+      try {
+        await setupWatch(token.userId.toString());
+        results.push({ email: token.email, status: 'renewed' });
+      } catch (err: any) {
+        results.push({ email: token.email, status: `error: ${err.message}` });
+      }
+    }
+
+    res.json({ renewed: results.length, results });
+  } catch (err: any) {
+    console.error('Cron renew error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

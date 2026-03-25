@@ -1,10 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ISupplier, SupplierCategory, SUPPLIER_CATEGORIES } from '@shared/types';
+import { ISupplier, SupplierCategory, SUPPLIER_CATEGORIES, UnitType } from '@shared/types';
 import * as suppliersApi from '../api/suppliers';
+import * as agreementsApi from '../api/agreements';
 import { useOnboardingStore } from '../store/onboardingStore';
 import OnboardingTooltip from '../components/OnboardingTooltip';
+
+const UNITS: { value: UnitType; label: string }[] = [
+  { value: 'kg', label: 'ק"ג' },
+  { value: 'unit', label: 'יחידה' },
+  { value: 'liter', label: 'ליטר' },
+  { value: 'box', label: 'קרטון' },
+  { value: 'other', label: 'אחר' },
+];
+
+interface AgreementRow {
+  productName: string;
+  unit: UnitType;
+  agreedPrice: string;
+}
+
+const emptyAgreementRow = (): AgreementRow => ({
+  productName: '',
+  unit: 'unit',
+  agreedPrice: '',
+});
 
 const defaultForm = {
   name: '',
@@ -22,6 +43,7 @@ export default function SuppliersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [agreementRows, setAgreementRows] = useState<AgreementRow[]>([emptyAgreementRow()]);
   const navigate = useNavigate();
   const { markStep, steps } = useOnboardingStore();
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -49,13 +71,43 @@ export default function SuppliersPage() {
         await suppliersApi.updateSupplier(editingId, form);
         toast.success('ספק עודכן בהצלחה');
       } else {
-        await suppliersApi.createSupplier(form);
-        toast.success('ספק נוסף בהצלחה');
+        const newSupplier = await suppliersApi.createSupplier(form);
         markStep('addedSupplier');
+
+        // Create price agreements if any rows are filled
+        const validRows = agreementRows.filter(r => r.productName.trim() && r.agreedPrice);
+        if (validRows.length > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          let created = 0;
+          for (const row of validRows) {
+            try {
+              await agreementsApi.createAgreement({
+                supplierId: newSupplier._id,
+                productName: row.productName.trim(),
+                unit: row.unit,
+                agreedPrice: parseFloat(row.agreedPrice),
+                validFrom: today,
+                validUntil: null,
+              });
+              created++;
+            } catch {
+              // continue with other rows
+            }
+          }
+          if (created > 0) {
+            markStep('addedAgreement');
+            toast.success(`ספק נוסף עם ${created} הסכמי מחיר`);
+          } else {
+            toast.success('ספק נוסף בהצלחה');
+          }
+        } else {
+          toast.success('ספק נוסף בהצלחה');
+        }
       }
       setShowForm(false);
       setEditingId(null);
       setForm(defaultForm);
+      setAgreementRows([emptyAgreementRow()]);
       loadSuppliers();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'שגיאה');
@@ -167,7 +219,7 @@ export default function SuppliersPage() {
           <div className="relative hidden md:block">
             <button
               ref={addBtnRef}
-              onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
+              onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); setAgreementRows([emptyAgreementRow()]); }}
               className="btn-primary"
               id="add-supplier-btn"
             >
@@ -259,6 +311,84 @@ export default function SuppliersPage() {
                   rows={2}
                 />
               </div>
+
+              {/* Price agreements section — only for new suppliers */}
+              {!editingId && (
+                <div className="border-t pt-4 mt-2">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-bold text-gray-700">הסכמי מחיר (אופציונלי)</label>
+                  </div>
+                  <div className="space-y-2">
+                    {agreementRows.map((row, idx) => (
+                      <div key={idx} className="flex gap-2 items-end">
+                        <div className="flex-[2]">
+                          {idx === 0 && <span className="text-xs text-gray-500 mb-0.5 block">מוצר</span>}
+                          <input
+                            type="text"
+                            value={row.productName}
+                            onChange={(e) => {
+                              const rows = [...agreementRows];
+                              rows[idx].productName = e.target.value;
+                              setAgreementRows(rows);
+                            }}
+                            className="input-field !py-1.5 text-sm"
+                            placeholder='לדוגמה: עגבניות'
+                          />
+                        </div>
+                        <div className="flex-[1]">
+                          {idx === 0 && <span className="text-xs text-gray-500 mb-0.5 block">מחיר (₪)</span>}
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={row.agreedPrice}
+                            onChange={(e) => {
+                              const rows = [...agreementRows];
+                              rows[idx].agreedPrice = e.target.value;
+                              setAgreementRows(rows);
+                            }}
+                            className="input-field !py-1.5 text-sm"
+                            placeholder="0.00"
+                            dir="ltr"
+                          />
+                        </div>
+                        <div className="flex-[1]">
+                          {idx === 0 && <span className="text-xs text-gray-500 mb-0.5 block">יחידה</span>}
+                          <select
+                            value={row.unit}
+                            onChange={(e) => {
+                              const rows = [...agreementRows];
+                              rows[idx].unit = e.target.value as UnitType;
+                              setAgreementRows(rows);
+                            }}
+                            className="input-field !py-1.5 text-sm"
+                          >
+                            {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                          </select>
+                        </div>
+                        {agreementRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setAgreementRows(agreementRows.filter((_, i) => i !== idx))}
+                            className="text-gray-400 hover:text-danger-500 p-1"
+                            title="הסר"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAgreementRows([...agreementRows, emptyAgreementRow()])}
+                    className="text-sm text-primary-500 hover:underline mt-2"
+                  >
+                    + הוסף מוצר נוסף
+                  </button>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button type="submit" className="btn-primary flex-1">{editingId ? 'עדכן' : 'הוסף'}</button>
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">ביטול</button>
@@ -275,7 +405,7 @@ export default function SuppliersPage() {
           <h2 className="text-xl font-bold text-gray-700 mb-2">עדיין אין ספקים</h2>
           <p className="text-gray-500 mb-6">הוסף את הספק הראשון שלך כדי להתחיל לעקוב אחר מחירים</p>
           <button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
+            onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); setAgreementRows([emptyAgreementRow()]); }}
             className="btn-primary text-base px-8 py-3"
           >
             + הוסף ספק ראשון
@@ -385,7 +515,7 @@ export default function SuppliersPage() {
       {/* Mobile sticky add button */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg z-30">
         <button
-          onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); }}
+          onClick={() => { setShowForm(true); setEditingId(null); setForm(defaultForm); setAgreementRows([emptyAgreementRow()]); }}
           className="btn-primary w-full text-base"
         >
           + הוסף ספק

@@ -1,8 +1,13 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(os.tmpdir(), 'uploads');
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+// Ensure upload directory exists (use /tmp on serverless)
+try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch {}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {

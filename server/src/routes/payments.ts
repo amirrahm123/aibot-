@@ -35,57 +35,12 @@ async function notifyAdmin(message: string) {
 }
 
 // POST /api/payments/create-checkout-session
+// Stripe checkout disabled — contact directly for plan upgrades
 router.post('/create-checkout-session', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const stripe = getStripe();
-    const { planId } = req.body; // 'pro' or 'business'
-
-    const priceMap: Record<string, string | undefined> = {
-      pro: process.env.STRIPE_PRO_PRICE_ID,
-      business: process.env.STRIPE_BUSINESS_PRICE_ID,
-    };
-
-    const priceId = priceMap[planId];
-    if (!priceId) {
-      res.status(400).json({ error: 'תוכנית לא תקינה' });
-      return;
-    }
-
-    const user = await User.findById(req.userId);
-    if (!user) {
-      res.status(404).json({ error: 'משתמש לא נמצא' });
-      return;
-    }
-
-    // Create or reuse Stripe customer
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        metadata: { userId: user._id.toString() },
-        name: user.businessName,
-        phone: user.phone,
-      });
-      customerId = customer.id;
-      user.stripeCustomerId = customerId;
-      await user.save();
-    }
-
-    const clientUrl = process.env.CLIENT_URL || '';
-
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/app/pricing?success=true`,
-      cancel_url: `${clientUrl}/app/pricing?canceled=true`,
-      metadata: { userId: user._id.toString(), planId },
-    });
-
-    res.json({ url: session.url });
-  } catch (err: any) {
-    console.error('Checkout session error:', err);
-    res.status(500).json({ error: 'שגיאה ביצירת תשלום' });
-  }
+  res.status(200).json({
+    message: 'התשלום אינו זמין כרגע דרך האתר. ליצירת קשר והצטרפות לתוכנית, פנו אלינו ישירות בוואטסאפ: 0527044989',
+    whatsapp: 'https://wa.me/9720527044989',
+  });
 });
 
 // POST /api/payments/webhook (no auth — Stripe calls this)

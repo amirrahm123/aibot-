@@ -26,16 +26,7 @@ const uploadLimiter = rateLimit({
 router.post('/upload', uploadLimiter, uploadMiddleware.single('file'), async (req: AuthRequest, res: Response) => {
   let invoice: any = null;
   try {
-    // Free plan limit: 10 invoices per month
-    const user = await User.findById(req.userId);
-    if (user && (!user.plan || user.plan === 'free')) {
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const monthCount = await Invoice.countDocuments({ userId: req.userId, uploadedAt: { $gte: startOfMonth } });
-      if (monthCount >= 10) {
-        res.status(403).json({ error: 'שדרג לפרו להעלות חשבוניות נוספות', upgrade: true });
-        return;
-      }
-    }
+    // Plan limits removed — all users get full access
 
     const { supplierId } = req.body;
     if (!supplierId) {

@@ -5,3 +5,5 @@ uploads/
 server/public/
 *.log
 .netlify/
+
+.vercel

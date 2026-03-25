@@ -34,9 +34,20 @@ router.get('/status', authMiddleware, async (req: AuthRequest, res: Response) =>
 // GET /api/gmail/connect — redirect to Google OAuth consent screen (requires auth)
 router.get('/connect', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate Google OAuth env vars are present
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
+      console.error('Missing Google OAuth env vars:', {
+        hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+        hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+        hasRedirectUri: !!process.env.GOOGLE_REDIRECT_URI,
+      });
+      res.status(500).json({ error: 'Gmail integration not configured on server' });
+      return;
+    }
     const authUrl = getAuthUrl(req.userId!);
     res.json({ authUrl });
-  } catch {
+  } catch (err: any) {
+    console.error('Gmail connect error:', err);
     res.status(500).json({ error: 'שגיאה ביצירת קישור חיבור Gmail' });
   }
 });

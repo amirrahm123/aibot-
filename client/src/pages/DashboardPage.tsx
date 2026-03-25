@@ -33,18 +33,21 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<IInvoice[]>([]);
+  const [pendingInvoices, setPendingInvoices] = useState<IInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [dashStats, invs] = await Promise.all([
+        const [dashStats, invs, pending] = await Promise.all([
           invoicesApi.getDashboardStats(),
           invoicesApi.getInvoices({ limit: 10 }),
+          invoicesApi.getInvoices({ pendingOnly: true, limit: 20 }),
         ]);
         setStats(dashStats);
         setRecentInvoices(invs.data);
+        setPendingInvoices(pending.data);
       } catch {
         toast.error('שגיאה בטעינת נתונים');
       } finally {
@@ -74,6 +77,63 @@ export default function DashboardPage() {
           סרוק חשבונית עם AI
         </button>
       </div>
+
+      {/* Pending invoices alert */}
+      {pendingInvoices.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {/* General pending alert */}
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">&#9888;</span>
+              <div>
+                <p className="font-bold text-amber-800">
+                  {pendingInvoices.length === 1
+                    ? 'יש חשבונית אחת שלא נבדקה'
+                    : `יש ${pendingInvoices.length} חשבוניות שלא נבדקו`}
+                </p>
+                <p className="text-sm text-amber-700 mt-1">
+                  חשבוניות שהתקבלו אוטומטית דרך Gmail וממתינות לאישורך
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/app/invoices?pendingOnly=true')}
+              className="bg-amber-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-amber-600 transition-colors text-sm whitespace-nowrap min-h-[44px]"
+            >
+              בדוק עכשיו
+            </button>
+          </div>
+
+          {/* Individual overcharge alerts for pending invoices */}
+          {pendingInvoices
+            .filter(inv => inv.totalOverchargeAmount > 0)
+            .map(inv => (
+              <div
+                key={inv._id}
+                onClick={() => navigate(`/app/invoices/${inv._id}`)}
+                className="bg-red-50 border border-red-300 rounded-xl p-4 cursor-pointer hover:bg-red-100 transition-colors"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">&#128680;</span>
+                    <div>
+                      <p className="font-bold text-red-800">
+                        חריגת מחיר: {inv.supplierName || 'ספק'}
+                        {inv.invoiceNumber ? ` — חשבונית ${inv.invoiceNumber}` : ''}
+                      </p>
+                      <p className="text-sm text-red-700 mt-1">
+                        נמצאו {inv.overchargeCount} פריטים חורגים — סה״כ חריגה של{' '}
+                        <strong dir="ltr">{formatAgorot(inv.totalOverchargeAmount)}</strong>
+                        {' '}מעבר למחיר המוסכם
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm text-red-500 font-medium whitespace-nowrap">לחץ לפרטים &larr;</span>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* Stats cards — 4 cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">

@@ -54,6 +54,7 @@ router.get('/connect', authMiddleware, async (req: AuthRequest, res: Response) =
 
 // GET /api/gmail/callback — OAuth callback from Google (no auth — state carries userId)
 router.get('/callback', async (req: any, res: Response) => {
+  const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}`;
   try {
     const { code, state: userId } = req.query;
 
@@ -64,15 +65,17 @@ router.get('/callback', async (req: any, res: Response) => {
 
     await handleOAuthCallback(code as string, userId as string);
 
-    // Set up Gmail watch for push notifications
-    await setupWatch(userId as string);
+    // Set up Gmail watch for push notifications (non-blocking — don't fail the whole flow)
+    try {
+      await setupWatch(userId as string);
+    } catch (watchErr: any) {
+      console.error('Gmail watch setup failed (non-fatal):', watchErr.message);
+    }
 
     // Redirect back to integrations page in the app
-    const clientUrl = process.env.CLIENT_URL || '';
     res.redirect(`${clientUrl}/app/integrations?gmail=connected`);
   } catch (err: any) {
     console.error('Gmail OAuth callback error:', err);
-    const clientUrl = process.env.CLIENT_URL || '';
     res.redirect(`${clientUrl}/app/integrations?gmail=error&message=${encodeURIComponent(err.message)}`);
   }
 });

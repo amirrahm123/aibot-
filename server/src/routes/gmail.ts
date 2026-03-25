@@ -57,11 +57,11 @@ router.get('/callback', async (req: any, res: Response) => {
     await setupWatch(userId as string);
 
     // Redirect back to integrations page in the app
-    const clientUrl = process.env.CLIENT_URL || 'https://aibot-rouge.vercel.app';
+    const clientUrl = process.env.CLIENT_URL || '';
     res.redirect(`${clientUrl}/app/integrations?gmail=connected`);
   } catch (err: any) {
     console.error('Gmail OAuth callback error:', err);
-    const clientUrl = process.env.CLIENT_URL || 'https://aibot-rouge.vercel.app';
+    const clientUrl = process.env.CLIENT_URL || '';
     res.redirect(`${clientUrl}/app/integrations?gmail=error&message=${encodeURIComponent(err.message)}`);
   }
 });

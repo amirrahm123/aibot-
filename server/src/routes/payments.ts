@@ -70,7 +70,7 @@ router.post('/create-checkout-session', authMiddleware, async (req: AuthRequest,
       await user.save();
     }
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const clientUrl = process.env.CLIENT_URL || '';
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -234,7 +234,7 @@ router.get('/portal', authMiddleware, async (req: AuthRequest, res: Response) =>
       return;
     }
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const clientUrl = process.env.CLIENT_URL || '';
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${clientUrl}/pricing`,

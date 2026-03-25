@@ -17,7 +17,10 @@ import webhookRoutes from '../server/src/routes/webhooks';
 const app = express();
 
 // CORS
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  : ['http://localhost:5173', 'http://localhost:4173'];
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 // Stripe webhook needs raw body — must be before express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));

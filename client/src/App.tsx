@@ -76,6 +76,8 @@ export default function App() {
       <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
       <Route path="/suppliers" element={<Navigate to="/app/suppliers" replace />} />
       <Route path="/agreements" element={<Navigate to="/app/agreements" replace />} />
+      <Route path="/price-agreements" element={<Navigate to="/app/agreements" replace />} />
+      <Route path="/app/price-agreements" element={<Navigate to="/app/agreements" replace />} />
       <Route path="/invoices/:id" element={<Navigate to="/app/invoices/:id" replace />} />
       <Route path="/invoices" element={<Navigate to="/app/invoices" replace />} />
       <Route path="/pricing" element={<Navigate to="/app/pricing" replace />} />

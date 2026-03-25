@@ -357,7 +357,7 @@ export default function InvoiceDetailPage() {
             הוסף הסכמי מחיר כדי לזהות חריגות אוטומטית
           </p>
           <button
-            onClick={() => navigate(`/agreements?supplierId=${invoice.supplierId}`)}
+            onClick={() => navigate(`/app/agreements?supplierId=${invoice.supplierId}`)}
             className="text-sm text-primary-500 hover:underline mt-2"
           >
             הוסף הסכמי מחיר →

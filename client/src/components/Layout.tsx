@@ -18,7 +18,7 @@ export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { load: loadOnboarding, resetOnboarding, completed: onboardingCompleted } = useOnboardingStore();
+  const { load: loadOnboarding } = useOnboardingStore();
 
   useEffect(() => {
     loadOnboarding();
@@ -57,16 +57,7 @@ export default function Layout() {
               </div>
             </div>
             <div className="flex items-center gap-3 md:gap-4">
-              <span className="text-sm text-gray-500 hidden sm:block">{user?.businessName}</span>
-              {onboardingCompleted && (
-                <button
-                  onClick={resetOnboarding}
-                  className="text-sm text-gray-400 hover:text-primary-500 hidden md:block"
-                  title="סיור מודרך"
-                >
-                  סיור מודרך
-                </button>
-              )}
+              <span className="text-sm text-gray-600 font-medium hidden sm:block">{user?.businessName}</span>
               <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 hidden md:block">
                 התנתק
               </button>
@@ -111,14 +102,6 @@ export default function Layout() {
             <div className="border-t border-gray-200 mt-2 pt-2">
               {user?.businessName && (
                 <p className="px-3 py-2 text-sm text-gray-500">{user.businessName}</p>
-              )}
-              {onboardingCompleted && (
-                <button
-                  onClick={() => { setMobileMenuOpen(false); resetOnboarding(); }}
-                  className="w-full text-right px-3 py-3 text-base font-medium text-gray-500 hover:bg-gray-50 rounded-lg min-h-[44px]"
-                >
-                  סיור מודרך
-                </button>
               )}
               <button
                 onClick={() => { setMobileMenuOpen(false); handleLogout(); }}

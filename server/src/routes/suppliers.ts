@@ -45,16 +45,6 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // POST /api/suppliers
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    // Free plan limit: 5 suppliers
-    const user = await User.findById(req.userId);
-    if (user && (!user.plan || user.plan === 'free')) {
-      const count = await Supplier.countDocuments({ userId: req.userId, isActive: true });
-      if (count >= 5) {
-        res.status(403).json({ error: 'שדרג לפרו להוסיף ספקים נוספים', upgrade: true });
-        return;
-      }
-    }
-
     const { name, contactName, contactPhone, email, category, notes } = req.body;
     if (!name || name.trim().length < 2) {
       res.status(400).json({ error: 'שם ספק חייב להכיל לפחות 2 תווים' });

@@ -45,11 +45,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // POST /api/suppliers
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    // Free plan limit: 2 suppliers
+    // Free plan limit: 5 suppliers
     const user = await User.findById(req.userId);
     if (user && (!user.plan || user.plan === 'free')) {
       const count = await Supplier.countDocuments({ userId: req.userId, isActive: true });
-      if (count >= 2) {
+      if (count >= 5) {
         res.status(403).json({ error: 'שדרג לפרו להוסיף ספקים נוספים', upgrade: true });
         return;
       }

@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import PriceAgreement from '../models/PriceAgreement';
+import PriceAgreementHistory from '../models/PriceAgreementHistory';
 import Supplier from '../models/Supplier';
 
 const router = Router();
@@ -56,23 +57,41 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // PUT /api/agreements/:id
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const update: any = { ...req.body };
+    // First, load the current agreement to capture old price for history
+    const existing = await PriceAgreement.findOne({ _id: req.params.id, userId: req.userId });
+    if (!existing) {
+      res.status(404).json({ error: 'הסכם מחיר לא נמצא' });
+      return;
+    }
+
+    const update: Record<string, unknown> = { ...req.body };
     // Convert shekels to agorot if agreedPrice is being updated
     if (update.agreedPrice != null) {
-      update.agreedPrice = Math.round(update.agreedPrice * 100);
+      update.agreedPrice = Math.round((update.agreedPrice as number) * 100);
     }
-    if (update.validFrom) update.validFrom = new Date(update.validFrom);
-    if (update.validUntil) update.validUntil = new Date(update.validUntil);
+    if (update.validFrom) update.validFrom = new Date(update.validFrom as string);
+    if (update.validUntil) update.validUntil = new Date(update.validUntil as string);
+
+    // Log price change to history if price actually changed
+    const newPriceAgorot = update.agreedPrice as number | undefined;
+    if (newPriceAgorot != null && newPriceAgorot !== existing.agreedPrice) {
+      await PriceAgreementHistory.create({
+        agreementId: existing._id,
+        supplierId: existing.supplierId,
+        productName: existing.productName,
+        oldPrice: existing.agreedPrice,
+        newPrice: newPriceAgorot,
+        changedBy: req.userId,
+        changeReason: (req.body.changeReason as string) || undefined,
+      });
+    }
 
     const agreement = await PriceAgreement.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
       { $set: update },
       { new: true }
     );
-    if (!agreement) {
-      res.status(404).json({ error: 'הסכם מחיר לא נמצא' });
-      return;
-    }
+
     res.json(agreement);
   } catch {
     res.status(500).json({ error: 'שגיאה בעדכון הסכם מחיר' });
@@ -90,6 +109,26 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     res.json({ message: 'הסכם מחיר נמחק בהצלחה' });
   } catch {
     res.status(500).json({ error: 'שגיאה במחיקת הסכם מחיר' });
+  }
+});
+
+// GET /api/agreements/:id/history — get price change history for an agreement
+router.get('/:id/history', async (req: AuthRequest, res: Response) => {
+  try {
+    // Verify ownership
+    const agreement = await PriceAgreement.findOne({ _id: req.params.id, userId: req.userId });
+    if (!agreement) {
+      res.status(404).json({ error: 'הסכם מחיר לא נמצא' });
+      return;
+    }
+
+    const history = await PriceAgreementHistory.find({ agreementId: req.params.id })
+      .sort({ changedAt: -1 })
+      .lean();
+
+    res.json(history);
+  } catch {
+    res.status(500).json({ error: 'שגיאה בטעינת היסטוריית שינויים' });
   }
 });
 

@@ -127,7 +127,12 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       ownerName: user.ownerName,
       phone: user.phone,
       plan: user.plan || 'free',
+      billingInterval: user.billingInterval || 'monthly',
       planExpiresAt: user.planExpiresAt,
+      isTrial: user.isTrial || false,
+      trialEndsAt: user.trialEndsAt,
+      whatsappNumber: user.whatsappNumber,
+      whatsappVerified: user.whatsappVerified || false,
       createdAt: user.createdAt,
     });
   } catch {

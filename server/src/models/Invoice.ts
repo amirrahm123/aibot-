@@ -40,6 +40,8 @@ export interface IInvoiceDocument extends Document {
   totalInvoiceAmount: number;    // agorot
   totalOverchargeAmount: number; // agorot
   overchargeCount: number;
+  errorReason?: string;
+  disputeMessage?: string;
   processingLog?: IProcessingLogSubdoc;
   approvedAt?: Date;
   approvedBy?: Types.ObjectId;
@@ -85,6 +87,8 @@ const InvoiceSchema = new Schema<IInvoiceDocument>({
   totalInvoiceAmount: { type: Number, default: 0 },
   totalOverchargeAmount: { type: Number, default: 0 },
   overchargeCount: { type: Number, default: 0 },
+  errorReason: { type: String },
+  disputeMessage: { type: String },
   processingLog: ProcessingLogSchema,
   approvedAt: Date,
   approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -92,5 +96,11 @@ const InvoiceSchema = new Schema<IInvoiceDocument>({
 
 InvoiceSchema.index({ userId: 1, uploadedAt: -1 });
 InvoiceSchema.index({ supplierId: 1 });
+// Deduplication: prevent duplicate invoices for the same supplier + invoice number + date
+// sparse: true allows multiple docs where invoiceNumber or invoiceDate is null
+InvoiceSchema.index(
+  { supplierId: 1, invoiceNumber: 1, invoiceDate: 1 },
+  { unique: true, sparse: true }
+);
 
 export default mongoose.model<IInvoiceDocument>('Invoice', InvoiceSchema);

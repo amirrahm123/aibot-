@@ -1,5 +1,5 @@
 import api from './client';
-import { IInvoice, PaginatedResponse, DashboardStats, InvoiceSource } from '@shared/types';
+import { IInvoice, IUserUsage, PaginatedResponse, DashboardStats, InvoiceSource } from '@shared/types';
 
 export async function uploadInvoice(file: File, supplierId: string): Promise<IInvoice> {
   const formData = new FormData();
@@ -45,8 +45,23 @@ export async function reprocessInvoice(id: string): Promise<IInvoice> {
   return res.data;
 }
 
+export async function retryInvoice(id: string): Promise<IInvoice> {
+  const res = await api.post<IInvoice>(`/invoices/${id}/retry`);
+  return res.data;
+}
+
 export async function getInvoiceReport(id: string): Promise<Blob> {
   const res = await api.get(`/invoices/${id}/report`, { responseType: 'blob' });
+  return res.data;
+}
+
+export async function generateDisputeMessage(id: string): Promise<{ message: string }> {
+  const res = await api.post<{ message: string }>(`/invoices/${id}/dispute-message`);
+  return res.data;
+}
+
+export async function getUsageStatus(): Promise<IUserUsage> {
+  const res = await api.get<IUserUsage>('/invoices/usage');
   return res.data;
 }
 

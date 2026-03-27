@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useOnboardingStore } from '../store/onboardingStore';
 import WelcomeModal from './WelcomeModal';
 import OnboardingChecklist from './OnboardingChecklist';
+import NotificationBell from './NotificationBell';
 
 const navItems = [
   { path: '/app/dashboard', label: 'דשבורד', icon: '📊' },
@@ -56,7 +57,8 @@ export default function Layout() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 md:gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
+              <NotificationBell />
               <span className="text-sm text-gray-600 font-medium hidden sm:block">{user?.businessName}</span>
               <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 hidden md:block">
                 התנתק

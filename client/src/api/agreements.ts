@@ -21,7 +21,12 @@ export async function deleteAgreement(id: string): Promise<void> {
   await api.delete(`/agreements/${id}`);
 }
 
-export async function bulkImportAgreements(items: any[]): Promise<{ created: number; errors: string[] }> {
+export async function getAgreementHistory(id: string): Promise<import('@shared/types').IPriceAgreementHistory[]> {
+  const res = await api.get<import('@shared/types').IPriceAgreementHistory[]>(`/agreements/${id}/history`);
+  return res.data;
+}
+
+export async function bulkImportAgreements(items: unknown[]): Promise<{ created: number; errors: string[] }> {
   const res = await api.post<{ created: number; errors: string[] }>('/agreements/bulk', { items });
   return res.data;
 }

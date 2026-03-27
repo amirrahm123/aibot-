@@ -9,6 +9,7 @@ import PriceAgreement from '../models/PriceAgreement';
 import Supplier from '../models/Supplier';
 import { extractInvoiceData } from '../services/ai.service';
 import { matchLineItems } from '../services/invoice.service';
+import { incrementScanCount, getUsageStatus } from '../services/usage.service';
 import User from '../models/User';
 
 const router = Router();
@@ -24,9 +25,14 @@ const uploadLimiter = rateLimit({
 
 // POST /api/invoices/upload
 router.post('/upload', uploadLimiter, uploadMiddleware.single('file'), async (req: AuthRequest, res: Response) => {
-  let invoice: any = null;
+  let invoice: InstanceType<typeof Invoice> | null = null;
   try {
-    // Plan limits removed — all users get full access
+    // Check free tier AI scan limit
+    const canScan = await incrementScanCount(req.userId!);
+    if (!canScan) {
+      res.status(403).json({ error: 'הגעת למגבלת הסריקות החודשית — שדרג לפרו לסריקות ללא הגבלה', code: 'SCAN_LIMIT_REACHED' });
+      return;
+    }
 
     const { supplierId } = req.body;
     if (!supplierId) {
@@ -85,18 +91,37 @@ router.post('/upload', uploadLimiter, uploadMiddleware.single('file'), async (re
 
     // Populate supplier name for response
     const supplier = await Supplier.findById(supplierId).lean();
-    const result = invoice.toObject();
-    result.supplierName = supplier?.name;
+    const result = { ...invoice.toObject(), supplierName: supplier?.name };
 
     res.status(201).json(result);
-  } catch (err: any) {
-    console.error('Invoice processing error:', err);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('Invoice processing error:', errMsg);
     if (invoice) {
+      let errorReason = 'שגיאת עיבוד כללית';
+      if (errMsg.includes('JSON')) {
+        errorReason = 'שגיאת AI — לא ניתן לפרש את התוצאה';
+      } else if (errMsg.includes('extract') || errMsg.includes('PDF') || errMsg.includes('pdf')) {
+        errorReason = 'לא ניתן לחלץ טקסט מהקובץ';
+      } else if (errMsg.includes('anthropic') || errMsg.includes('claude') || errMsg.includes('API')) {
+        errorReason = 'שגיאת AI — נסה שוב מאוחר יותר';
+      }
       invoice.status = 'error';
-      invoice.rawExtractedText = err.message;
+      invoice.errorReason = errorReason;
+      invoice.rawExtractedText = errMsg;
       await invoice.save();
     }
-    res.status(500).json({ error: 'שגיאה בעיבוד החשבונית — נסה שוב', details: err.message });
+    res.status(500).json({ error: 'שגיאה בעיבוד החשבונית — נסה שוב', details: errMsg });
+  }
+});
+
+// GET /api/invoices/usage — get free tier usage status
+router.get('/usage', async (req: AuthRequest, res: Response) => {
+  try {
+    const usage = await getUsageStatus(req.userId!);
+    res.json(usage);
+  } catch {
+    res.status(500).json({ error: 'שגיאה בטעינת נתוני שימוש' });
   }
 });
 
@@ -267,8 +292,8 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/invoices/:id/reprocess
-router.post('/:id/reprocess', async (req: AuthRequest, res: Response) => {
+// POST /api/invoices/:id/retry — re-runs AI extraction on stored file
+router.post('/:id/retry', async (req: AuthRequest, res: Response) => {
   try {
     const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.userId });
     if (!invoice) {
@@ -277,23 +302,49 @@ router.post('/:id/reprocess', async (req: AuthRequest, res: Response) => {
     }
 
     invoice.status = 'processing';
+    invoice.errorReason = undefined;
     await invoice.save();
 
-    // Re-read file
-    const filePath = path.resolve(invoice.fileUrl);
-    if (!fs.existsSync(filePath)) {
+    // Try to read file from local filesystem or from rawExtractedText
+    let fileBase64: string | undefined;
+    let mediaType: 'application/pdf' | 'image/jpeg' | 'image/png' = 'application/pdf';
+
+    if (invoice.fileUrl) {
+      const filePath = path.resolve(invoice.fileUrl);
+      if (fs.existsSync(filePath)) {
+        const fileBuffer = fs.readFileSync(filePath);
+        fileBase64 = fileBuffer.toString('base64');
+        const ext = path.extname(filePath).toLowerCase();
+        mediaType = ext === '.pdf' ? 'application/pdf' : ext === '.png' ? 'image/png' : 'image/jpeg';
+      }
+    }
+
+    // Also try rawFileUrl from processing log (Vercel Blob, etc.)
+    if (!fileBase64 && invoice.processingLog?.rawFileUrl) {
+      try {
+        const resp = await fetch(invoice.processingLog.rawFileUrl);
+        if (resp.ok) {
+          const buffer = Buffer.from(await resp.arrayBuffer());
+          fileBase64 = buffer.toString('base64');
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.includes('pdf')) mediaType = 'application/pdf';
+          else if (ct.includes('png')) mediaType = 'image/png';
+          else mediaType = 'image/jpeg';
+        }
+      } catch {
+        // fall through
+      }
+    }
+
+    if (!fileBase64) {
       invoice.status = 'error';
+      invoice.errorReason = 'קובץ החשבונית לא נמצא — לא ניתן לעבד מחדש';
       await invoice.save();
       res.status(400).json({ error: 'קובץ החשבונית לא נמצא' });
       return;
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const fileBase64 = fileBuffer.toString('base64');
-    const ext = path.extname(filePath).toLowerCase();
-    const mediaType = ext === '.pdf' ? 'application/pdf' : ext === '.png' ? 'image/png' : 'image/jpeg';
-
-    const extracted = await extractInvoiceData(fileBase64, mediaType as any);
+    const extracted = await extractInvoiceData(fileBase64, mediaType);
 
     invoice.rawExtractedText = JSON.stringify(extracted);
     invoice.invoiceNumber = extracted.invoiceNumber || undefined;
@@ -315,11 +366,115 @@ router.post('/:id/reprocess', async (req: AuthRequest, res: Response) => {
       .reduce((sum, item) => sum + (item.overchargeAmount || 0), 0);
     invoice.overchargeCount = matchedItems.filter((item) => item.isOvercharge).length;
     invoice.status = 'done';
+    invoice.errorReason = undefined;
 
     await invoice.save();
-    res.json(invoice);
-  } catch (err: any) {
-    res.status(500).json({ error: 'שגיאה בעיבוד מחדש', details: err.message });
+
+    const supplier = await Supplier.findById(invoice.supplierId).lean();
+    const result = { ...invoice.toObject(), supplierName: supplier?.name || '' };
+
+    res.json(result);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    // Try to update the invoice with error state
+    try {
+      const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.userId });
+      if (invoice) {
+        let errorReason = 'שגיאת עיבוד כללית';
+        if (errMsg.includes('JSON')) errorReason = 'שגיאת AI — לא ניתן לפרש את התוצאה';
+        else if (errMsg.includes('PDF') || errMsg.includes('pdf')) errorReason = 'לא ניתן לחלץ טקסט מהקובץ';
+        else if (errMsg.includes('anthropic') || errMsg.includes('API')) errorReason = 'שגיאת AI — נסה שוב מאוחר יותר';
+        invoice.status = 'error';
+        invoice.errorReason = errorReason;
+        await invoice.save();
+      }
+    } catch { /* best effort */ }
+    res.status(500).json({ error: 'שגיאה בעיבוד מחדש', details: errMsg });
+  }
+});
+
+// POST /api/invoices/:id/reprocess (legacy alias for retry)
+router.post('/:id/reprocess', async (req: AuthRequest, res: Response) => {
+  // Forward to retry handler
+  req.url = `/${req.params.id}/retry`;
+  res.redirect(307, `/api/invoices/${req.params.id}/retry`);
+});
+
+// POST /api/invoices/:id/dispute-message — generate a dispute WhatsApp message using Claude
+router.post('/:id/dispute-message', async (req: AuthRequest, res: Response) => {
+  try {
+    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.userId })
+      .populate('supplierId', 'name contactPhone')
+      .lean();
+
+    if (!invoice) {
+      res.status(404).json({ error: 'חשבונית לא נמצאה' });
+      return;
+    }
+
+    const overchargedItems = invoice.lineItems.filter((item) => item.isOvercharge);
+    if (overchargedItems.length === 0) {
+      res.status(400).json({ error: 'לא נמצאו חריגות מחיר בחשבונית זו' });
+      return;
+    }
+
+    const supplierName = (invoice.supplierId as unknown as { name: string; contactPhone?: string })?.name || 'ספק';
+
+    // Build the item list for the prompt
+    const itemsList = overchargedItems.map((item) => {
+      return `- ${item.productName}: מחיר מוסכם ₪${((item.agreedPrice || 0) / 100).toFixed(2)}/${item.unit}, חויב ₪${(item.unitPrice / 100).toFixed(2)}/${item.unit}, הפרש ₪${((item.priceDiff || 0) / 100).toFixed(2)} ליחידה, כמות ${item.quantity}, סה"כ חריגה ₪${((item.overchargeAmount || 0) / 100).toFixed(2)}`;
+    }).join('\n');
+
+    const totalOvercharge = `₪${(invoice.totalOverchargeAmount / 100).toFixed(2)}`;
+    const invoiceDate = invoice.invoiceDate
+      ? new Date(invoice.invoiceDate).toLocaleDateString('he-IL')
+      : 'לא צוין';
+
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    const client = new Anthropic();
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: `You are a business communication assistant for Israeli SMBs. Generate a polite but firm Hebrew WhatsApp message to a supplier about price discrepancies found in their invoice. The message should:
+- Be written in natural, professional Hebrew suitable for WhatsApp
+- Be direct but respectful (formal but not stiff)
+- Cite the specific price agreement and invoice details
+- List each overcharged item clearly
+- Request a corrected invoice or credit note
+- Be concise — suitable for a WhatsApp message (not a formal letter)
+- Do NOT use markdown formatting — plain text only
+- Return ONLY the message text, nothing else`,
+      messages: [{
+        role: 'user',
+        content: `Generate a dispute message for this invoice:
+
+Supplier: ${supplierName}
+Invoice number: ${invoice.invoiceNumber || 'לא צוין'}
+Invoice date: ${invoiceDate}
+Total overcharge: ${totalOvercharge}
+
+Overcharged items:
+${itemsList}`,
+      }],
+    });
+
+    const messageText = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => (b as { type: 'text'; text: string }).text)
+      .join('');
+
+    // Store the message on the invoice
+    await Invoice.updateOne(
+      { _id: req.params.id, userId: req.userId },
+      { $set: { disputeMessage: messageText } },
+    );
+
+    res.json({ message: messageText });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('Dispute message generation error:', errMsg);
+    res.status(500).json({ error: 'שגיאה ביצירת הודעת מחלוקת' });
   }
 });
 

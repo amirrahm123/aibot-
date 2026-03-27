@@ -7,6 +7,7 @@ import {
   setupWatch,
   disconnectGmail,
 } from '../services/gmail.service';
+import { notifyGmailExpiring } from '../services/notification.service';
 
 const router = Router();
 
@@ -103,6 +104,20 @@ router.post('/renew-watch', authMiddleware, async (req: AuthRequest, res: Respon
   }
 });
 
+// POST /api/gmail/renew — manually trigger watch renewal (requires auth)
+router.post('/renew', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await setupWatch(req.userId!);
+    res.json({
+      message: 'Watch חודש בהצלחה',
+      expiration: result.expiration,
+    });
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: 'שגיאה בחידוש Watch', details: errMsg });
+  }
+});
+
 // GET /api/gmail/cron-renew — auto-renew all expiring watches (called by Vercel Cron)
 router.get('/cron-renew', async (req: any, res: Response) => {
   try {
@@ -128,15 +143,37 @@ router.get('/cron-renew', async (req: any, res: Response) => {
       try {
         await setupWatch(token.userId.toString());
         results.push({ email: token.email, status: 'renewed' });
-      } catch (err: any) {
-        results.push({ email: token.email, status: `error: ${err.message}` });
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        results.push({ email: token.email, status: `error: ${errMsg}` });
+
+        // If renewal failed and watch expires within 7 days, create notification
+        if (token.watchExpiration) {
+          const expiryDate = new Date(token.watchExpiration);
+          const daysRemaining = Math.ceil((expiryDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+          if (daysRemaining <= 7 && daysRemaining > 0) {
+            try {
+              await notifyGmailExpiring(token.userId, daysRemaining);
+            } catch { /* best effort */ }
+          }
+        }
       }
     }
 
-    res.json({ renewed: results.length, results });
-  } catch (err: any) {
-    console.error('Cron renew error:', err);
-    res.status(500).json({ error: err.message });
+    // Also process trial expirations in the same daily cron
+    let trialResults = { expired: 0, warned: 0 };
+    try {
+      const { processTrialExpirations } = await import('./subscription');
+      trialResults = await processTrialExpirations();
+    } catch (trialErr) {
+      console.error('Trial expiry processing error:', trialErr);
+    }
+
+    res.json({ renewed: results.length, results, trials: trialResults });
+  } catch (err: unknown) {
+    const cronErrMsg = err instanceof Error ? err.message : String(err);
+    console.error('Cron renew error:', cronErrMsg);
+    res.status(500).json({ error: cronErrMsg });
   }
 });
 

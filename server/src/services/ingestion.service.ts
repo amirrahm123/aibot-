@@ -4,6 +4,8 @@ import PriceAgreement from '../models/PriceAgreement';
 import Supplier from '../models/Supplier';
 import { extractInvoiceData } from './ai.service';
 import { matchLineItems } from './invoice.service';
+import { notifyNewInvoice, notifyOvercharge, notifyError } from './notification.service';
+import { incrementInvoiceCount } from './usage.service';
 import type { InvoiceSource } from '../../../shared/types';
 
 type MediaType = 'image/jpeg' | 'image/png' | 'application/pdf';
@@ -176,7 +178,44 @@ export async function processIncomingInvoice(input: IngestionInput): Promise<Ing
     wasAutoMatched = true;
   }
 
-  // Step 2: Create invoice record in processing state
+  // Step 2: Deduplication — if we already have an invoice with same supplier + number + date, skip
+  // (This is a pre-check; the compound unique index is the ultimate guard)
+  // We can only check this after AI extraction, but for Gmail/WhatsApp we can check by gmailMessageId early
+  if (gmailMessageId) {
+    const existingByMsg = await Invoice.findOne({ 'processingLog.gmailMessageId': gmailMessageId });
+    if (existingByMsg) {
+      console.warn(`Ingestion: skipping duplicate Gmail message ${gmailMessageId}`);
+      return { invoice: existingByMsg, supplierName, wasAutoMatched };
+    }
+  }
+
+  // Step 2b: Check free tier usage cap
+  const canIngest = await incrementInvoiceCount(userId);
+  if (!canIngest) {
+    // Create a queued invoice with special status instead of processing
+    const queuedInvoice = await Invoice.create({
+      userId,
+      supplierId,
+      fileUrl: rawFileUrl || '',
+      status: 'error',
+      errorReason: 'ממתין לשדרוג — הגעת למגבלת החשבוניות החודשית',
+      source,
+      processingLog: {
+        source,
+        receivedAt: new Date(),
+        senderEmail,
+        senderPhone,
+        rawFileUrl,
+        extractionStatus: 'error',
+        errorMessage: 'FREE_TIER_LIMIT_REACHED',
+        gmailMessageId,
+        emailSubject,
+      },
+    });
+    return { invoice: queuedInvoice, supplierName, wasAutoMatched };
+  }
+
+  // Step 3: Create invoice record in processing state
   const invoice = await Invoice.create({
     userId,
     supplierId,
@@ -212,6 +251,22 @@ export async function processIncomingInvoice(input: IngestionInput): Promise<Ing
     invoice.invoiceNumber = extracted.invoiceNumber || undefined;
     invoice.invoiceDate = extracted.invoiceDate ? new Date(extracted.invoiceDate) : undefined;
 
+    // Step 4b: Post-extraction dedup check by supplier + invoiceNumber + invoiceDate
+    if (invoice.invoiceNumber && invoice.invoiceDate) {
+      const existingDup = await Invoice.findOne({
+        _id: { $ne: invoice._id },
+        supplierId,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+      });
+      if (existingDup) {
+        console.warn(`Ingestion: duplicate invoice detected — supplier=${supplierName}, number=${invoice.invoiceNumber}`);
+        // Remove the newly created record and return the existing one
+        await Invoice.deleteOne({ _id: invoice._id });
+        return { invoice: existingDup, supplierName, wasAutoMatched };
+      }
+    }
+
     // Step 5: Load active agreements and match
     const now = new Date();
     const agreements = await PriceAgreement.find({
@@ -239,16 +294,55 @@ export async function processIncomingInvoice(input: IngestionInput): Promise<Ing
 
     await invoice.save();
 
+    // Create notifications (fire-and-forget)
+    try {
+      await notifyNewInvoice(userId, supplierName, invoice._id, supplierId);
+      if (invoice.overchargeCount > 0) {
+        await notifyOvercharge(
+          userId,
+          supplierName,
+          invoice.totalOverchargeAmount,
+          invoice.overchargeCount,
+          invoice._id,
+          supplierId,
+        );
+      }
+    } catch (notifErr) {
+      console.error('Failed to create notification:', notifErr);
+    }
+
     return { invoice, supplierName, wasAutoMatched };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    // Map internal errors to user-facing Hebrew reasons
+    let errorReason = 'שגיאת עיבוד כללית';
+    if (errMsg.includes('SUPPLIER_NOT_FOUND')) {
+      errorReason = 'ספק לא זוהה';
+    } else if (errMsg.includes('No file or email body')) {
+      errorReason = 'לא התקבל קובץ או טקסט לעיבוד';
+    } else if (errMsg.includes('JSON')) {
+      errorReason = 'שגיאת AI — לא ניתן לפרש את התוצאה';
+    } else if (errMsg.includes('extract') || errMsg.includes('PDF') || errMsg.includes('pdf')) {
+      errorReason = 'לא ניתן לחלץ טקסט מהקובץ';
+    } else if (errMsg.includes('anthropic') || errMsg.includes('claude') || errMsg.includes('API')) {
+      errorReason = 'שגיאת AI — נסה שוב מאוחר יותר';
+    }
+
     // Update invoice with error
     invoice.status = 'error';
+    invoice.errorReason = errorReason;
     if (invoice.processingLog) {
       invoice.processingLog.extractionStatus = 'error';
-      invoice.processingLog.errorMessage = err.message;
+      invoice.processingLog.errorMessage = errMsg;
     }
-    invoice.rawExtractedText = err.message;
+    invoice.rawExtractedText = errMsg;
     await invoice.save();
+
+    // Notify about the error (fire-and-forget)
+    try {
+      await notifyError(userId, errorReason, invoice._id);
+    } catch { /* ignore */ }
+
     throw err;
   }
 }

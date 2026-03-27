@@ -16,6 +16,6 @@ export async function disconnectGmail(): Promise<void> {
 }
 
 export async function renewGmailWatch(): Promise<{ expiration: string }> {
-  const res = await api.post<{ expiration: string }>('/gmail/renew-watch');
+  const res = await api.post<{ expiration: string; message: string }>('/gmail/renew');
   return res.data;
 }

@@ -126,6 +126,18 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleRetry = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    try {
+      toast.loading('מעבד מחדש...', { id: `retry-${invoiceId}` });
+      await invoicesApi.retryInvoice(invoiceId);
+      toast.success('חשבונית עובדה בהצלחה', { id: `retry-${invoiceId}` });
+      loadData();
+    } catch {
+      toast.error('שגיאה בעיבוד מחדש', { id: `retry-${invoiceId}` });
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -281,6 +293,7 @@ export default function InvoicesPage() {
                     key={inv._id}
                     onClick={() => navigate(`/app/invoices/${inv._id}`)}
                     className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                      inv.status === 'error' ? 'bg-red-50' :
                       inv.status === 'pending_approval' ? 'bg-yellow-50' :
                       inv.overchargeCount > 0 ? 'bg-danger-50/30' : ''
                     }`}
@@ -300,7 +313,14 @@ export default function InvoicesPage() {
                         <span className="text-gray-400">0</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm">{statusBadge(inv.status)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex flex-col gap-1">
+                        {statusBadge(inv.status)}
+                        {inv.status === 'error' && inv.errorReason && (
+                          <span className="text-xs text-red-500">{inv.errorReason}</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       {inv.status === 'pending_approval' && (
                         <button
@@ -308,6 +328,14 @@ export default function InvoicesPage() {
                           className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
                         >
                           אשר
+                        </button>
+                      )}
+                      {inv.status === 'error' && (
+                        <button
+                          onClick={(e) => handleRetry(e, inv._id)}
+                          className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 transition-colors"
+                        >
+                          נסה שוב
                         </button>
                       )}
                     </td>
@@ -324,6 +352,7 @@ export default function InvoicesPage() {
                 key={inv._id}
                 onClick={() => navigate(`/app/invoices/${inv._id}`)}
                 className={`card !p-4 cursor-pointer active:bg-gray-50 ${
+                  inv.status === 'error' ? 'border-red-300 bg-red-50/40' :
                   inv.status === 'pending_approval' ? 'border-yellow-300 bg-yellow-50/40' :
                   inv.overchargeCount > 0 ? 'border-danger-200 bg-danger-50/20' : ''
                 }`}
@@ -344,6 +373,11 @@ export default function InvoicesPage() {
                   <span className="text-gray-500">{new Date(inv.uploadedAt).toLocaleDateString('he-IL')}</span>
                   <span className="font-medium" dir="ltr">{formatAgorot(inv.totalInvoiceAmount)}</span>
                 </div>
+                {inv.status === 'error' && inv.errorReason && (
+                  <div className="text-xs text-red-500 mt-2 pt-2 border-t border-red-100">
+                    {inv.errorReason}
+                  </div>
+                )}
                 {inv.overchargeCount > 0 && (
                   <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-gray-100">
                     <span className={`font-medium ${inv.totalOverchargeAmount > 0 ? 'text-red-600' : 'text-danger-500'}`}>
@@ -359,6 +393,16 @@ export default function InvoicesPage() {
                       className="w-full px-3 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                     >
                       אשר חשבונית
+                    </button>
+                  </div>
+                )}
+                {inv.status === 'error' && (
+                  <div className="mt-3 pt-2 border-t border-red-100">
+                    <button
+                      onClick={(e) => handleRetry(e, inv._id)}
+                      className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                    >
+                      נסה שוב
                     </button>
                   </div>
                 )}

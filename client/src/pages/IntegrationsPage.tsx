@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as gmailApi from '../api/gmail';
+import * as whatsappApi from '../api/whatsapp';
+import { useAuthStore } from '../store/authStore';
 import type { GmailConnectionStatus } from '@shared/types';
 
 export default function IntegrationsPage() {
@@ -10,6 +12,17 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const { user, loadUser } = useAuthStore();
+
+  // WhatsApp wizard state
+  const [waStep, setWaStep] = useState<1 | 2 | 3>(1);
+  const [waPhone, setWaPhone] = useState('');
+  const [waCode, setWaCode] = useState(['', '', '', '', '', '']);
+  const [waSending, setWaSending] = useState(false);
+  const [waVerifying, setWaVerifying] = useState(false);
+  const [waDisconnecting, setWaDisconnecting] = useState(false);
+  const [waTesting, setWaTesting] = useState(false);
+  const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     loadStatus();
@@ -60,14 +73,28 @@ export default function IntegrationsPage() {
     }
   }
 
+  const [renewing, setRenewing] = useState(false);
+
   async function handleRenewWatch() {
+    setRenewing(true);
     try {
       await gmailApi.renewGmailWatch();
       await loadStatus();
       toast.success('Watch חודש בהצלחה');
     } catch {
       toast.error('שגיאה בחידוש Watch');
+    } finally {
+      setRenewing(false);
     }
+  }
+
+  function getExpiryInfo(expiration: string | undefined): { text: string; colorClass: string; daysRemaining: number } {
+    if (!expiration) return { text: 'לא פעיל', colorClass: 'text-gray-500', daysRemaining: 0 };
+    const daysRemaining = Math.ceil((new Date(expiration).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+    if (daysRemaining <= 0) return { text: 'פג תוקף', colorClass: 'text-red-600', daysRemaining };
+    if (daysRemaining <= 7) return { text: `פג תוקף בעוד ${daysRemaining} ימים`, colorClass: 'text-red-600', daysRemaining };
+    if (daysRemaining <= 14) return { text: `פג תוקף בעוד ${daysRemaining} ימים`, colorClass: 'text-amber-600', daysRemaining };
+    return { text: `פג תוקף בעוד ${daysRemaining} ימים`, colorClass: 'text-green-600', daysRemaining };
   }
 
   if (loading) {
@@ -106,19 +133,36 @@ export default function IntegrationsPage() {
                   <span className="text-sm text-gray-500">{gmailStatus.email}</span>
                 </div>
 
-                {gmailStatus.watchActive ? (
-                  <div className="text-sm text-gray-500">
-                    Watch פעיל עד {new Date(gmailStatus.watchExpiration!).toLocaleDateString('he-IL')}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full" />
-                    <span className="text-sm text-yellow-700">Watch לא פעיל</span>
-                    <button onClick={handleRenewWatch} className="text-sm text-primary-500 hover:underline">
-                      חדש עכשיו
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const expiry = getExpiryInfo(gmailStatus.watchExpiration);
+                  return gmailStatus.watchActive ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-block w-2 h-2 rounded-full ${
+                        expiry.daysRemaining > 14 ? 'bg-green-500' : expiry.daysRemaining > 7 ? 'bg-amber-500' : 'bg-red-500'
+                      }`} />
+                      <span className={`text-sm font-medium ${expiry.colorClass}`}>{expiry.text}</span>
+                      <button
+                        onClick={handleRenewWatch}
+                        disabled={renewing}
+                        className="text-sm text-primary-500 hover:underline disabled:opacity-50"
+                      >
+                        {renewing ? 'מחדש...' : 'חדש עכשיו'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full" />
+                      <span className="text-sm text-yellow-700">Watch לא פעיל</span>
+                      <button
+                        onClick={handleRenewWatch}
+                        disabled={renewing}
+                        className="text-sm text-primary-500 hover:underline disabled:opacity-50"
+                      >
+                        {renewing ? 'מחדש...' : 'חדש עכשיו'}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 <button
                   onClick={handleDisconnect}
@@ -165,20 +209,173 @@ export default function IntegrationsPage() {
               קליטת חשבוניות ששולחים ספקים ב-WhatsApp
             </p>
 
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700 space-y-2">
-              <p><strong>הגדרה:</strong></p>
-              <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                <li>צור חשבון Twilio והגדר WhatsApp Sandbox</li>
-                <li>הגדר את ה-Webhook URL ב-Twilio:</li>
-              </ol>
-              <code className="block p-2 bg-white rounded border text-xs font-mono text-left" dir="ltr">
-                POST {window.location.origin}/api/webhooks/whatsapp
-              </code>
-              <ol className="list-decimal list-inside space-y-1 text-gray-600" start={3}>
-                <li>הוסף את משתני הסביבה ב-Vercel: <code className="text-xs">TWILIO_ACCOUNT_SID</code>, <code className="text-xs">TWILIO_AUTH_TOKEN</code></li>
-                <li>ודא שמספרי הטלפון של הספקים מעודכנים במערכת</li>
-              </ol>
-            </div>
+            {user?.whatsappVerified && user.whatsappNumber ? (
+              /* Connected state */
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-sm text-green-700 font-medium">מחובר</span>
+                  <span className="text-sm text-gray-500" dir="ltr">{user.whatsappNumber}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setWaTesting(true);
+                      try {
+                        await whatsappApi.sendTestMessage();
+                        toast.success('הודעת בדיקה נשלחה!');
+                      } catch { toast.error('שגיאה בשליחת הודעת בדיקה'); }
+                      finally { setWaTesting(false); }
+                    }}
+                    disabled={waTesting}
+                    className="text-sm text-primary-500 hover:underline"
+                  >
+                    {waTesting ? 'שולח...' : 'שלח הודעת בדיקה'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setWaDisconnecting(true);
+                      try {
+                        await whatsappApi.disconnectWhatsApp();
+                        toast.success('WhatsApp נותק');
+                        loadUser();
+                      } catch { toast.error('שגיאה'); }
+                      finally { setWaDisconnecting(false); }
+                    }}
+                    disabled={waDisconnecting}
+                    className="text-sm text-red-500 hover:text-red-700"
+                  >
+                    {waDisconnecting ? 'מנתק...' : 'נתק'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Setup wizard */
+              <div className="mt-4">
+                {/* Step indicators */}
+                <div className="flex items-center gap-2 mb-4">
+                  {[1, 2, 3].map((s) => (
+                    <div key={s} className="flex items-center gap-1">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        waStep >= s ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                      }`}>{waStep > s ? '✓' : s}</div>
+                      {s < 3 && <div className={`w-8 h-0.5 ${waStep > s ? 'bg-green-500' : 'bg-gray-200'}`} />}
+                    </div>
+                  ))}
+                </div>
+
+                {waStep === 1 && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">מספר ה-WhatsApp העסקי שלך</label>
+                    <p className="text-xs text-gray-500">זה המספר שדרכו תקבל התראות וחשבוניות</p>
+                    <input
+                      type="tel"
+                      value={waPhone}
+                      onChange={(e) => setWaPhone(e.target.value)}
+                      className="input-field"
+                      placeholder="050-1234567"
+                      dir="ltr"
+                    />
+                    <button
+                      onClick={async () => {
+                        setWaSending(true);
+                        try {
+                          await whatsappApi.startVerification(waPhone);
+                          toast.success('קוד אימות נשלח!');
+                          setWaStep(2);
+                        } catch (err: unknown) {
+                          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'שגיאה';
+                          toast.error(msg);
+                        } finally { setWaSending(false); }
+                      }}
+                      disabled={waSending || !waPhone.trim()}
+                      className="btn-primary w-full min-h-[44px]"
+                    >
+                      {waSending ? 'שולח...' : 'שלח קוד אימות'}
+                    </button>
+                  </div>
+                )}
+
+                {waStep === 2 && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">הזן את הקוד שקיבלת</label>
+                    <div className="flex gap-2 justify-center" dir="ltr">
+                      {waCode.map((digit, i) => (
+                        <input
+                          key={i}
+                          ref={(el) => { codeInputRefs.current[i] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            const newCode = [...waCode];
+                            newCode[i] = val;
+                            setWaCode(newCode);
+                            if (val && i < 5) codeInputRefs.current[i + 1]?.focus();
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && !waCode[i] && i > 0) {
+                              codeInputRefs.current[i - 1]?.focus();
+                            }
+                          }}
+                          className="w-10 h-12 text-center text-lg font-bold border border-gray-300 rounded-lg focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none"
+                        />
+                      ))}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const code = waCode.join('');
+                        if (code.length !== 6) { toast.error('יש להזין 6 ספרות'); return; }
+                        setWaVerifying(true);
+                        try {
+                          await whatsappApi.confirmVerification(code);
+                          toast.success('WhatsApp אומת בהצלחה!');
+                          setWaStep(3);
+                          loadUser();
+                        } catch (err: unknown) {
+                          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'שגיאה';
+                          toast.error(msg);
+                        } finally { setWaVerifying(false); }
+                      }}
+                      disabled={waVerifying || waCode.join('').length !== 6}
+                      className="btn-primary w-full min-h-[44px]"
+                    >
+                      {waVerifying ? 'מאמת...' : 'אמת'}
+                    </button>
+                    <button
+                      onClick={() => { setWaStep(1); setWaCode(['', '', '', '', '', '']); }}
+                      className="text-sm text-gray-500 hover:underline w-full text-center"
+                    >
+                      חזור
+                    </button>
+                  </div>
+                )}
+
+                {waStep === 3 && (
+                  <div className="text-center space-y-3 py-4">
+                    <div className="text-4xl">✅</div>
+                    <p className="font-bold text-green-700">!WhatsApp מחובר בהצלחה</p>
+                    <p className="text-sm text-gray-500">כשספק שולח לך חשבונית ב-WhatsApp, אנחנו נסרוק אותה אוטומטית</p>
+                    <button
+                      onClick={async () => {
+                        setWaTesting(true);
+                        try {
+                          await whatsappApi.sendTestMessage();
+                          toast.success('הודעת בדיקה נשלחה!');
+                        } catch { toast.error('שגיאה בשליחת הודעת בדיקה'); }
+                        finally { setWaTesting(false); }
+                      }}
+                      disabled={waTesting}
+                      className="btn-secondary"
+                    >
+                      {waTesting ? 'שולח...' : 'שלח לי הודעת בדיקה'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

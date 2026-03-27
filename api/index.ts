@@ -13,6 +13,10 @@ import dashboardRoutes from '../server/src/routes/dashboard';
 import paymentRoutes from '../server/src/routes/payments';
 import gmailRoutes from '../server/src/routes/gmail';
 import webhookRoutes from '../server/src/routes/webhooks';
+import notificationRoutes from '../server/src/routes/notifications';
+import analyticsRoutes from '../server/src/routes/analytics';
+import subscriptionRoutes from '../server/src/routes/subscription';
+import whatsappSetupRoutes from '../server/src/routes/whatsappSetup';
 
 const app = express();
 
@@ -55,6 +59,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/gmail', gmailRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/integrations/whatsapp', whatsappSetupRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

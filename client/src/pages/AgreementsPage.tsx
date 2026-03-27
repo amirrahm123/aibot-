@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Papa from 'papaparse';
-import { IPriceAgreement, ISupplier, UnitType } from '@shared/types';
+import { IPriceAgreement, IPriceAgreementHistory, ISupplier, UnitType } from '@shared/types';
 import * as agreementsApi from '../api/agreements';
 import * as suppliersApi from '../api/suppliers';
 import { useOnboardingStore } from '../store/onboardingStore';
@@ -18,6 +18,7 @@ const UNITS: { value: UnitType; label: string }[] = [
 export default function AgreementsPage() {
   const [searchParams] = useSearchParams();
   const filterSupplier = searchParams.get('supplierId') || '';
+  const shouldOpenModal = searchParams.get('openModal') === 'true';
 
   const [agreements, setAgreements] = useState<IPriceAgreement[]>([]);
   const [suppliers, setSuppliers] = useState<ISupplier[]>([]);
@@ -27,6 +28,9 @@ export default function AgreementsPage() {
   const [selectedSupplier, setSelectedSupplier] = useState(filterSupplier);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const { markStep, steps } = useOnboardingStore();
+  const [historyDrawer, setHistoryDrawer] = useState<{ open: boolean; agreementId: string; productName: string }>({ open: false, agreementId: '', productName: '' });
+  const [historyData, setHistoryData] = useState<IPriceAgreementHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [form, setForm] = useState({
     supplierId: filterSupplier,
@@ -57,6 +61,23 @@ export default function AgreementsPage() {
   };
 
   useEffect(() => { loadData(); }, [selectedSupplier]);
+
+  // Auto-open modal when ?openModal=true is present
+  useEffect(() => {
+    if (shouldOpenModal && !loading) {
+      setShowForm(true);
+      setEditingId(null);
+      setForm({
+        supplierId: filterSupplier,
+        productName: '',
+        unit: 'kg',
+        agreedPrice: '',
+        validFrom: new Date().toISOString().split('T')[0],
+        validUntil: '',
+        notes: '',
+      });
+    }
+  }, [shouldOpenModal, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +111,19 @@ export default function AgreementsPage() {
       loadData();
     } catch {
       toast.error('שגיאה');
+    }
+  };
+
+  const handleShowHistory = async (agreementId: string, productName: string) => {
+    setHistoryDrawer({ open: true, agreementId, productName });
+    setHistoryLoading(true);
+    try {
+      const data = await agreementsApi.getAgreementHistory(agreementId);
+      setHistoryData(data);
+    } catch {
+      toast.error('שגיאה בטעינת היסטוריה');
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -292,6 +326,13 @@ export default function AgreementsPage() {
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={() => handleShowHistory(a._id, a.productName)}
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                          title="היסטוריה"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                        <button
                           onClick={() => {
                             setEditingId(a._id);
                             setForm({
@@ -342,6 +383,13 @@ export default function AgreementsPage() {
                 </div>
                 <div className="flex gap-2 border-t border-gray-100 pt-2">
                   <button
+                    onClick={() => handleShowHistory(a._id, a.productName)}
+                    className="p-2 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition-colors min-h-[44px] flex items-center"
+                    title="היסטוריה"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </button>
+                  <button
                     onClick={() => {
                       setEditingId(a._id);
                       setForm({
@@ -372,6 +420,53 @@ export default function AgreementsPage() {
             ))}
           </div>
         </>
+      )}
+
+      {/* History side drawer */}
+      {historyDrawer.open && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setHistoryDrawer({ open: false, agreementId: '', productName: '' })} />
+          <div className="relative w-full max-w-sm bg-white h-full shadow-xl overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold">היסטוריית מחירים</h2>
+              <button
+                onClick={() => setHistoryDrawer({ open: false, agreementId: '', productName: '' })}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">{historyDrawer.productName}</p>
+
+            {historyLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500"></div>
+              </div>
+            ) : historyData.length === 0 ? (
+              <div className="text-center py-8 text-sm text-gray-400">
+                לא היו שינויים מאז הוספה
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historyData.map((h) => (
+                  <div key={h._id} className="border-s-2 border-primary-200 ps-4 pb-4">
+                    <p className="text-xs text-gray-400 mb-1">
+                      {new Date(h.changedAt).toLocaleDateString('he-IL')}
+                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-danger-500" dir="ltr">₪{(h.oldPrice / 100).toFixed(2)}</span>
+                      <span className="text-gray-400">←</span>
+                      <span className="font-medium text-success-500" dir="ltr">₪{(h.newPrice / 100).toFixed(2)}</span>
+                    </div>
+                    {h.changeReason && (
+                      <p className="text-xs text-gray-500 mt-1">{h.changeReason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

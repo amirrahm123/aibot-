@@ -36,6 +36,28 @@ const defaultForm = {
   notes: '',
 };
 
+const ISRAELI_PHONE_RE = /^(\+972[-\s]?|0)5\d[-\s]?\d{3}[-\s]?\d{4}$/;
+
+interface FormErrors {
+  name?: string;
+  contactName?: string;
+  contactPhone?: string;
+}
+
+function validateForm(form: typeof defaultForm): FormErrors {
+  const errors: FormErrors = {};
+  if (!form.name || form.name.trim().length < 2) {
+    errors.name = 'שם ספק חייב להכיל לפחות 2 תווים';
+  }
+  if (form.contactName && form.contactName.trim().length > 0 && form.contactName.trim().length < 2) {
+    errors.contactName = 'שם איש קשר חייב להכיל לפחות 2 תווים';
+  }
+  if (form.contactPhone && form.contactPhone.trim() && !ISRAELI_PHONE_RE.test(form.contactPhone.trim())) {
+    errors.contactPhone = 'מספר טלפון לא תקין (לדוגמה: 050-1234567)';
+  }
+  return errors;
+}
+
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<ISupplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +65,7 @@ export default function SuppliersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [agreementRows, setAgreementRows] = useState<AgreementRow[]>([emptyAgreementRow()]);
   const navigate = useNavigate();
   const { markStep, steps } = useOnboardingStore();
@@ -66,6 +89,9 @@ export default function SuppliersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateForm(form);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     try {
       if (editingId) {
         await suppliersApi.updateSupplier(editingId, form);
@@ -107,6 +133,7 @@ export default function SuppliersPage() {
       setShowForm(false);
       setEditingId(null);
       setForm(defaultForm);
+      setFormErrors({});
       setAgreementRows([emptyAgreementRow()]);
       loadSuppliers();
     } catch (err: any) {
@@ -247,12 +274,13 @@ export default function SuppliersPage() {
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="input-field"
+                  onChange={(e) => { setForm({ ...form, name: e.target.value }); setFormErrors((prev) => ({ ...prev, name: undefined })); }}
+                  className={`input-field ${formErrors.name ? 'border-red-400 ring-1 ring-red-400' : ''}`}
                   placeholder='לדוגמה: ירקות השרון בע"מ'
                   minLength={2}
                   required
                 />
+                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">קטגוריה *</label>
@@ -272,22 +300,24 @@ export default function SuppliersPage() {
                   <input
                     type="text"
                     value={form.contactName}
-                    onChange={(e) => setForm({ ...form, contactName: e.target.value })}
-                    className="input-field"
+                    onChange={(e) => { setForm({ ...form, contactName: e.target.value }); setFormErrors((prev) => ({ ...prev, contactName: undefined })); }}
+                    className={`input-field ${formErrors.contactName ? 'border-red-400 ring-1 ring-red-400' : ''}`}
                     placeholder="לדוגמה: יוסי כהן"
                     minLength={2}
                   />
+                  {formErrors.contactName && <p className="text-xs text-red-500 mt-1">{formErrors.contactName}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">טלפון</label>
                   <input
                     type="tel"
                     value={form.contactPhone}
-                    onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
-                    className="input-field"
+                    onChange={(e) => { setForm({ ...form, contactPhone: e.target.value }); setFormErrors((prev) => ({ ...prev, contactPhone: undefined })); }}
+                    className={`input-field ${formErrors.contactPhone ? 'border-red-400 ring-1 ring-red-400' : ''}`}
                     placeholder="050-1234567"
                     dir="ltr"
                   />
+                  {formErrors.contactPhone && <p className="text-xs text-red-500 mt-1">{formErrors.contactPhone}</p>}
                 </div>
               </div>
               <div>
@@ -430,7 +460,13 @@ export default function SuppliersPage() {
                     {(s.agreementCount || 0) > 0 ? (
                       <span className="flex-shrink-0 text-success-500 text-sm" title="יש הסכמי מחיר">✓</span>
                     ) : (
-                      <span className="flex-shrink-0 text-amber-500 text-sm" title="אין הסכמי מחיר">⚠</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/app/agreements?supplierId=${s._id}&openModal=true`); }}
+                        className="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border border-amber-400 text-amber-600 hover:bg-amber-50 transition-colors"
+                        title="הוסף הסכם מחיר"
+                      >
+                        + הוסף הסכם
+                      </button>
                     )}
                   </div>
                   <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${categoryBadgeColor(s.category)}`}>

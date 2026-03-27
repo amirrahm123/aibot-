@@ -1,6 +1,18 @@
 // ===== User =====
 export type PlanType = 'free' | 'pro' | 'business';
 
+export type BillingInterval = 'monthly' | 'annual';
+
+export interface IUserUsage {
+  invoicesIngested: number;
+  invoiceLimit: number;
+  aiScansUsed: number;
+  scanLimit: number;
+  canIngest: boolean;
+  canScan: boolean;
+  isFree: boolean;
+}
+
 export interface IUser {
   _id: string;
   username: string;
@@ -8,7 +20,12 @@ export interface IUser {
   ownerName: string;
   phone?: string;
   plan: PlanType;
+  billingInterval?: BillingInterval;
   planExpiresAt?: string;
+  isTrial?: boolean;
+  trialEndsAt?: string;
+  whatsappNumber?: string;
+  whatsappVerified?: boolean;
   createdAt: string;
 }
 
@@ -147,6 +164,8 @@ export interface IInvoice {
   status: InvoiceStatus;
   source: InvoiceSource;
   rawExtractedText?: string;
+  errorReason?: string;
+  disputeMessage?: string;
   lineItems: ILineItem[];
   totalInvoiceAmount: number;   // agorot
   totalOverchargeAmount: number; // agorot
@@ -209,6 +228,55 @@ export interface PaginationQuery {
   pendingOnly?: boolean;
   source?: InvoiceSource;
   search?: string;
+}
+
+// ===== Analytics =====
+export interface SavingsMonth {
+  month: string; // "YYYY-MM"
+  totalOvercharge: number; // agorot
+  invoiceCount: number;
+}
+
+export interface SavingsData {
+  monthly: SavingsMonth[];
+  lifetimeTotal: number; // agorot
+}
+
+export interface SupplierRisk {
+  supplierId: string;
+  supplierName: string;
+  riskScore: number; // 0-100
+  explanation: string;
+  overchargeCount: number;
+  totalInvoices: number;
+  totalOvercharge: number; // agorot
+}
+
+export interface IPriceAgreementHistory {
+  _id: string;
+  agreementId: string;
+  supplierId: string;
+  productName: string;
+  oldPrice: number; // agorot
+  newPrice: number; // agorot
+  changedAt: string;
+  changedBy: string;
+  changeReason?: string;
+}
+
+// ===== Notifications =====
+export type NotificationType = 'new_invoice' | 'overcharge_detected' | 'error' | 'gmail_expiring';
+
+export interface INotification {
+  _id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  invoiceId?: string;
+  supplierId?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 // ===== Gmail Integration =====

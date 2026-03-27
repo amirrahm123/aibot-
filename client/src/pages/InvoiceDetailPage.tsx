@@ -36,6 +36,9 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [reprocessing, setReprocessing] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeMessage, setDisputeMessage] = useState('');
+  const [generatingDispute, setGeneratingDispute] = useState(false);
 
   const loadInvoice = async () => {
     try {
@@ -145,6 +148,52 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleGenerateDispute = async () => {
+    // If we already have a stored dispute message, show it directly
+    if (invoice?.disputeMessage) {
+      setDisputeMessage(invoice.disputeMessage);
+      setShowDisputeModal(true);
+      return;
+    }
+    setGeneratingDispute(true);
+    setShowDisputeModal(true);
+    try {
+      const data = await invoicesApi.generateDisputeMessage(id!);
+      setDisputeMessage(data.message);
+      // Update local invoice state
+      setInvoice((prev) => prev ? { ...prev, disputeMessage: data.message } : prev);
+    } catch {
+      toast.error('שגיאה ביצירת הודעת מחלוקת');
+      setShowDisputeModal(false);
+    } finally {
+      setGeneratingDispute(false);
+    }
+  };
+
+  const handleCopyDispute = () => {
+    navigator.clipboard.writeText(disputeMessage);
+    toast.success('הודעה הועתקה');
+  };
+
+  const handleSendDisputeWhatsApp = () => {
+    const phone = (invoice as IInvoice & { supplierPhone?: string })?.supplierPhone?.replace(/\D/g, '') || '';
+    const msg = encodeURIComponent(disputeMessage);
+    const url = phone
+      ? `https://wa.me/972${phone.startsWith('0') ? phone.slice(1) : phone}?text=${msg}`
+      : `https://wa.me/?text=${msg}`;
+    window.open(url, '_blank');
+  };
+
+  const handleMarkResolved = async () => {
+    try {
+      const data = await invoicesApi.approveInvoice(id!);
+      setInvoice(data);
+      toast.success('חשבונית סומנה כטופלה');
+    } catch {
+      toast.error('שגיאה בעדכון סטטוס');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -193,9 +242,16 @@ export default function InvoiceDetailPage() {
               נמצאו {invoice.overchargeCount} חריגות מחיר — סה״כ {formatAgorot(invoice.totalOverchargeAmount)} יותר ממה שסוכם
             </p>
           </div>
-          <button onClick={handleWhatsApp} className="bg-white text-danger-500 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm w-full md:w-auto min-h-[44px]">
-            שלח הודעה לספק
-          </button>
+          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+            <button onClick={handleGenerateDispute} className="bg-white text-danger-500 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm w-full md:w-auto min-h-[44px]">
+              צור מסר מחלוקה
+            </button>
+            {invoice.status !== 'done' && (
+              <button onClick={handleMarkResolved} className="bg-white/20 text-white border border-white/40 px-4 py-2 rounded-lg font-medium hover:bg-white/30 transition-colors text-sm w-full md:w-auto min-h-[44px]">
+                סמן כטופל
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -357,11 +413,55 @@ export default function InvoiceDetailPage() {
             הוסף הסכמי מחיר כדי לזהות חריגות אוטומטית
           </p>
           <button
-            onClick={() => navigate(`/app/agreements?supplierId=${invoice.supplierId}`)}
+            onClick={() => navigate(`/app/agreements?supplierId=${invoice.supplierId}&openModal=true`)}
             className="text-sm text-primary-500 hover:underline mt-2"
           >
             הוסף הסכמי מחיר →
           </button>
+        </div>
+      )}
+
+      {/* Dispute message modal */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4">הודעת מחלוקת לספק</h2>
+            {generatingDispute ? (
+              <div className="flex flex-col items-center py-8 gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                <p className="text-sm text-gray-500">מייצר הודעה עם AI...</p>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={disputeMessage}
+                  onChange={(e) => setDisputeMessage(e.target.value)}
+                  className="input-field w-full h-56 text-sm leading-relaxed resize-y"
+                  dir="rtl"
+                />
+                <div className="flex flex-col md:flex-row gap-2 mt-4">
+                  <button
+                    onClick={handleCopyDispute}
+                    className="btn-secondary flex-1 text-sm"
+                  >
+                    העתק
+                  </button>
+                  <button
+                    onClick={handleSendDisputeWhatsApp}
+                    className="bg-green-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-600 transition-colors text-sm flex-1 min-h-[44px]"
+                  >
+                    שלח ב-WhatsApp
+                  </button>
+                  <button
+                    onClick={() => setShowDisputeModal(false)}
+                    className="btn-secondary flex-1 text-sm"
+                  >
+                    סגור
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

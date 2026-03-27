@@ -23,6 +23,10 @@ import agreementRoutes from './routes/agreements';
 import invoiceRoutes from './routes/invoices';
 import dashboardRoutes from './routes/dashboard';
 import paymentRoutes from './routes/payments';
+import notificationRoutes from './routes/notifications';
+import analyticsRoutes from './routes/analytics';
+import subscriptionRoutes from './routes/subscription';
+import whatsappSetupRoutes from './routes/whatsappSetup';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +65,10 @@ app.use('/api/agreements', agreementRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/integrations/whatsapp', whatsappSetupRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

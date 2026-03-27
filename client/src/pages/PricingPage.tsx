@@ -1,14 +1,17 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { PlanType } from '@shared/types';
+import * as subscriptionApi from '../api/subscription';
 
 interface PlanInfo {
   id: PlanType;
   name: string;
-  nameForWhatsApp: string;
-  price: string;
-  period: string;
+  monthlyPrice: number;
+  annualMonthlyPrice: number;
+  annualTotal: number;
   features: string[];
-  cta: string;
   popular?: boolean;
 }
 
@@ -18,40 +21,38 @@ const plans: PlanInfo[] = [
   {
     id: 'free',
     name: 'חינם',
-    nameForWhatsApp: 'חינם',
-    price: '0',
-    period: '',
+    monthlyPrice: 0,
+    annualMonthlyPrice: 0,
+    annualTotal: 0,
     features: [
-      'ספקים ללא הגבלה',
-      'חשבוניות ללא הגבלה',
+      '20 חשבוניות לחודש',
+      '5 סריקות AI לחודש',
       'זיהוי חריגות מחיר',
       'דשבורד בסיסי',
     ],
-    cta: 'התוכנית הנוכחית',
   },
   {
     id: 'pro',
     name: 'פרו',
-    nameForWhatsApp: 'פרו',
-    price: '99',
-    period: '/חודש',
+    monthlyPrice: 99,
+    annualMonthlyPrice: 79,
+    annualTotal: 948,
     popular: true,
     features: [
-      'ספקים ללא הגבלה',
       'חשבוניות ללא הגבלה',
+      'סריקות AI ללא הגבלה',
       'התראות WhatsApp',
       'דשבורד מתקדם',
       'ייצוא דו"חות',
       'תמיכה בעדיפות',
     ],
-    cta: 'צור קשר',
   },
   {
     id: 'business',
     name: 'עסקי',
-    nameForWhatsApp: 'עסקי',
-    price: '249',
-    period: '/חודש',
+    monthlyPrice: 249,
+    annualMonthlyPrice: 199,
+    annualTotal: 2388,
     features: [
       'הכל בפרו',
       'מספר משתמשים',
@@ -60,7 +61,6 @@ const plans: PlanInfo[] = [
       'אינטגרציות מתקדמות',
       'מנהל חשבון ייעודי',
     ],
-    cta: 'צור קשר',
   },
 ];
 
@@ -70,20 +70,59 @@ function getWhatsAppLink(planName: string) {
 }
 
 export default function PricingPage() {
-  const { user } = useAuthStore();
+  const { user, loadUser } = useAuthStore();
+  const navigate = useNavigate();
+  const [annual, setAnnual] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
 
   const currentPlan = user?.plan || 'free';
+  const canTrial = currentPlan === 'free' && !user?.isTrial && !user?.trialEndsAt;
+
+  const handleStartTrial = async () => {
+    setStartingTrial(true);
+    try {
+      await subscriptionApi.startTrial();
+      toast.success('הניסיון החינמי התחיל! יש לך 14 ימים של גישה מלאה.');
+      loadUser();
+      navigate('/app/dashboard');
+    } catch {
+      toast.error('שגיאה בהתחלת ניסיון');
+    } finally {
+      setStartingTrial(false);
+    }
+  };
 
   return (
     <div>
       <div className="text-center mb-8">
         <h1 className="text-2xl md:text-3xl font-bold mb-2">בחר את התוכנית שלך</h1>
-        <p className="text-gray-500">שדרג כדי לקבל גישה מלאה לכל הכלים</p>
+        <p className="text-gray-500 mb-6">שדרג כדי לקבל גישה מלאה לכל הכלים</p>
+
+        {/* Billing toggle */}
+        <div className="inline-flex items-center gap-3 bg-gray-100 rounded-full p-1">
+          <button
+            onClick={() => setAnnual(false)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              !annual ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'
+            }`}
+          >
+            חודשי
+          </button>
+          <button
+            onClick={() => setAnnual(true)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              annual ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'
+            }`}
+          >
+            שנתי
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {plans.map((plan) => {
           const isCurrent = currentPlan === plan.id;
+          const price = annual ? plan.annualMonthlyPrice : plan.monthlyPrice;
 
           return (
             <div
@@ -92,26 +131,32 @@ export default function PricingPage() {
                 isCurrent ? 'ring-2 ring-primary-500 ring-offset-2' : ''
               }`}
             >
-              {/* Popular badge */}
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full">
                   הכי פופולרי
                 </div>
               )}
 
-              {/* Current plan badge */}
               {isCurrent && (
                 <div className="absolute -top-3 right-4 bg-success-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  התוכנית שלך
+                  {user?.isTrial ? 'ניסיון פעיל' : 'התוכנית שלך'}
                 </div>
               )}
 
               <div className="text-center mb-6 pt-2">
                 <h2 className="text-xl font-bold mb-2">{plan.name}</h2>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-bold">₪{plan.price}</span>
-                  {plan.period && <span className="text-gray-500 text-sm">{plan.period}</span>}
+                  <span className="text-4xl font-bold transition-all duration-300">₪{price}</span>
+                  {price > 0 && <span className="text-gray-500 text-sm">/חודש</span>}
                 </div>
+                {annual && plan.annualTotal > 0 && (
+                  <div className="mt-1">
+                    <span className="text-xs text-gray-400">₪{plan.annualTotal} לשנה</span>
+                    <span className="inline-block ms-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      !חסכון של 2 חודשים
+                    </span>
+                  </div>
+                )}
               </div>
 
               <ul className="space-y-3 mb-8">
@@ -128,12 +173,20 @@ export default function PricingPage() {
                   <button disabled className="btn-secondary w-full opacity-50 cursor-not-allowed">
                     {isCurrent ? 'התוכנית הנוכחית' : 'תוכנית בסיסית'}
                   </button>
+                ) : plan.id === 'pro' && canTrial ? (
+                  <button
+                    onClick={handleStartTrial}
+                    disabled={startingTrial}
+                    className="w-full py-2.5 px-4 rounded-lg font-medium transition-colors bg-primary-500 hover:bg-primary-600 text-white min-h-[44px]"
+                  >
+                    {startingTrial ? 'מתחיל...' : 'נסה פרו בחינם ל-14 יום'}
+                  </button>
                 ) : (
                   <a
-                    href={getWhatsAppLink(plan.nameForWhatsApp)}
+                    href={getWhatsAppLink(plan.name)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`block text-center w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                    className={`block text-center w-full py-2.5 px-4 rounded-lg font-medium transition-colors min-h-[44px] ${
                       plan.popular
                         ? 'bg-green-500 hover:bg-green-600 text-white'
                         : 'bg-green-100 hover:bg-green-200 text-green-800'
@@ -153,7 +206,6 @@ export default function PricingPage() {
         })}
       </div>
 
-      {/* FAQ / info */}
       <div className="max-w-2xl mx-auto mt-12 text-center">
         <p className="text-sm text-gray-500">
           להצטרפות לתוכנית או לשאלות, צרו קשר בוואטסאפ ונחזור אליכם בהקדם.

@@ -42,18 +42,44 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Israeli phone format validation: 05X-XXXXXXX, 05XXXXXXXX, +972-5X-XXXXXXX, +9725XXXXXXXX
+const ISRAELI_PHONE_RE = /^(\+972[-\s]?|0)5\d[-\s]?\d{3}[-\s]?\d{4}$/;
+
+function validateSupplierFields(body: Record<string, string>): string | null {
+  const { name, contactName, contactPhone, category } = body;
+
+  if (!name || name.trim().length < 2) {
+    return 'שם ספק חייב להכיל לפחות 2 תווים';
+  }
+  if (contactName && contactName.trim().length < 2) {
+    return 'שם איש קשר חייב להכיל לפחות 2 תווים';
+  }
+  if (contactPhone && contactPhone.trim()) {
+    const cleaned = contactPhone.trim();
+    if (!ISRAELI_PHONE_RE.test(cleaned)) {
+      return 'מספר טלפון לא תקין — יש להזין בפורמט ישראלי (לדוגמה: 050-1234567)';
+    }
+  }
+  if (category) {
+    const validCategories = ['ירקות ופירות', 'מזון', 'מזון ושתייה', 'ניקוי', 'ציוד משרדי', 'ציוד מחשבים', 'ריהוט', 'לוגיסטיקה', 'אחר'];
+    if (!validCategories.includes(category)) {
+      return 'קטגוריה לא תקינה';
+    }
+  }
+  return null;
+}
+
 // POST /api/suppliers
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { name, contactName, contactPhone, email, category, notes } = req.body;
-    if (!name || name.trim().length < 2) {
-      res.status(400).json({ error: 'שם ספק חייב להכיל לפחות 2 תווים' });
+
+    const validationError = validateSupplierFields(req.body);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
       return;
     }
-    if (contactName && contactName.trim().length < 2) {
-      res.status(400).json({ error: 'שם איש קשר חייב להכיל לפחות 2 תווים' });
-      return;
-    }
+
     const supplier = await Supplier.create({
       userId: req.userId,
       name,
@@ -72,8 +98,14 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // PUT /api/suppliers/:id
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
+    const validationError = validateSupplierFields(req.body);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+
     const allowedFields = ['name', 'contactName', 'contactPhone', 'email', 'category', 'notes', 'isActive'];
-    const update: any = {};
+    const update: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     }

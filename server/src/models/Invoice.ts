@@ -42,6 +42,7 @@ export interface IInvoiceDocument extends Document {
   overchargeCount: number;
   errorReason?: string;
   disputeMessage?: string;
+  archived: boolean;
   processingLog?: IProcessingLogSubdoc;
   approvedAt?: Date;
   approvedBy?: Types.ObjectId;
@@ -89,6 +90,7 @@ const InvoiceSchema = new Schema<IInvoiceDocument>({
   overchargeCount: { type: Number, default: 0 },
   errorReason: { type: String },
   disputeMessage: { type: String },
+  archived: { type: Boolean, default: false },
   processingLog: ProcessingLogSchema,
   approvedAt: Date,
   approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },

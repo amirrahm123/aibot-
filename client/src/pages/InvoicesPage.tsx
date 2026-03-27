@@ -30,6 +30,7 @@ export default function InvoicesPage() {
   const [filterSupplier, setFilterSupplier] = useState('');
   const [overchargeOnly, setOverchargeOnly] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { markStep, steps } = useOnboardingStore();
@@ -37,8 +38,16 @@ export default function InvoicesPage() {
 
   const loadData = async () => {
     try {
+      const params: Parameters<typeof invoicesApi.getInvoices>[0] = {
+        page,
+        supplierId: filterSupplier || undefined,
+        overchargeOnly,
+        pendingOnly,
+        search: search || undefined,
+      };
+      if (showArchived) (params as Record<string, unknown>).archived = 'true';
       const [invs, sups] = await Promise.all([
-        invoicesApi.getInvoices({ page, supplierId: filterSupplier || undefined, overchargeOnly, pendingOnly, search: search || undefined }),
+        invoicesApi.getInvoices(params),
         suppliersApi.getSuppliers(),
       ]);
       setInvoices(invs);
@@ -56,7 +65,7 @@ export default function InvoicesPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, [page, filterSupplier, overchargeOnly, pendingOnly]);
+  useEffect(() => { loadData(); }, [page, filterSupplier, overchargeOnly, pendingOnly, showArchived]);
 
   const handleSearch = () => { setPage(1); loadData(); };
 
@@ -138,6 +147,40 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleArchive = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    try {
+      await invoicesApi.archiveInvoice(invoiceId);
+      toast.success('חשבונית הועברה לארכיון');
+      loadData();
+    } catch {
+      toast.error('שגיאה בהעברה לארכיון');
+    }
+  };
+
+  const handleUnarchive = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    try {
+      await invoicesApi.unarchiveInvoice(invoiceId);
+      toast.success('חשבונית שוחזרה');
+      loadData();
+    } catch {
+      toast.error('שגיאה בשחזור');
+    }
+  };
+
+  const handleDeleteInvoice = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    if (!confirm('האם אתה בטוח? פעולה זו אינה ניתנת לביטול.')) return;
+    try {
+      await invoicesApi.deleteInvoice(invoiceId);
+      toast.success('חשבונית נמחקה לצמיתות');
+      loadData();
+    } catch {
+      toast.error('שגיאה במחיקה');
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -198,6 +241,10 @@ export default function InvoicesPage() {
         <label className="flex items-center gap-2 text-sm min-h-[44px]">
           <input type="checkbox" checked={pendingOnly} onChange={(e) => { setPendingOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
           ממתינים לאישור
+        </label>
+        <label className="flex items-center gap-2 text-sm min-h-[44px]">
+          <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
+          ארכיון
         </label>
       </div>
 
@@ -322,22 +369,24 @@ export default function InvoicesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {inv.status === 'pending_approval' && (
-                        <button
-                          onClick={(e) => handleApprove(e, inv._id)}
-                          className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
-                        >
-                          אשר
-                        </button>
-                      )}
-                      {inv.status === 'error' && (
-                        <button
-                          onClick={(e) => handleRetry(e, inv._id)}
-                          className="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 transition-colors"
-                        >
-                          נסה שוב
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {inv.status === 'pending_approval' && (
+                          <button onClick={(e) => handleApprove(e, inv._id)} className="px-2 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors">אשר</button>
+                        )}
+                        {inv.status === 'error' && (
+                          <button onClick={(e) => handleRetry(e, inv._id)} className="px-2 py-1 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 transition-colors">נסה שוב</button>
+                        )}
+                        {inv.archived ? (
+                          <>
+                            <button onClick={(e) => handleUnarchive(e, inv._id)} className="px-2 py-1 text-gray-500 hover:text-primary-500 text-xs" title="שחזר">שחזר</button>
+                            <button onClick={(e) => handleDeleteInvoice(e, inv._id)} className="px-2 py-1 text-red-400 hover:text-red-600 text-xs" title="מחק לצמיתות">מחק</button>
+                          </>
+                        ) : (
+                          <button onClick={(e) => handleArchive(e, inv._id)} className="p-1 text-gray-400 hover:text-gray-600" title="העבר לארכיון">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

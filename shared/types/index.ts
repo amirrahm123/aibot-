@@ -166,6 +166,7 @@ export interface IInvoice {
   rawExtractedText?: string;
   errorReason?: string;
   disputeMessage?: string;
+  archived?: boolean;
   lineItems: ILineItem[];
   totalInvoiceAmount: number;   // agorot
   totalOverchargeAmount: number; // agorot

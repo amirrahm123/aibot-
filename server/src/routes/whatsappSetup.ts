@@ -45,23 +45,44 @@ router.post('/verify/start', async (req: AuthRequest, res: Response) => {
     const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
 
     if (twilioSid && twilioToken) {
-      try {
-        const authHeader = 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            From: twilioFrom,
-            To: `whatsapp:${normalizedPhone}`,
-            Body: `קוד האימות שלך בשומר המחיר: ${code}`,
-          }),
+      const authHeader = 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
+      const twilioResp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          From: twilioFrom,
+          To: `whatsapp:${normalizedPhone}`,
+          Body: `קוד האימות שלך בשומר המחיר: ${code}`,
+        }),
+      });
+
+      if (!twilioResp.ok) {
+        const errorBody = await twilioResp.json().catch(() => ({})) as Record<string, unknown>;
+        console.error('Twilio API error:', {
+          status: twilioResp.status,
+          body: errorBody,
+          from: twilioFrom,
+          to: `whatsapp:${normalizedPhone}`,
         });
-      } catch (err) {
-        console.error('Twilio send error:', err);
-        // Still return success — the OTP is stored, user can try again
+
+        // Check for sandbox-specific errors
+        const twilioMessage = String(errorBody.message || '');
+        if (twilioMessage.includes('not a valid WhatsApp') || twilioMessage.includes('sandbox')) {
+          res.status(400).json({
+            error: 'שליחת הקוד נכשלה — ב-Sandbox צריך קודם להצטרף דרך WhatsApp. בדוק שהמספר נכון ונסה שוב.',
+            details: twilioMessage,
+          });
+          return;
+        }
+
+        res.status(400).json({
+          error: 'שליחת הקוד נכשלה — בדוק שהמספר נכון ונסה שוב',
+          details: twilioMessage,
+        });
+        return;
       }
     } else {
       console.warn('Twilio not configured — OTP stored but not sent. Code:', code);

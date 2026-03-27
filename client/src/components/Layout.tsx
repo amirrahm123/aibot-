@@ -31,33 +31,13 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" dir="rtl">
       {/* Top nav */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-14 md:h-16">
-            <div className="flex items-center gap-8">
-              <h1 className="text-lg md:text-xl font-bold text-primary-500">שומר המחיר</h1>
-              <div className="hidden md:flex items-center gap-1">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-500'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`
-                    }
-                  >
-                    <span className="ml-1">{item.icon}</span>
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center h-14 md:h-16">
+            {/* Right side: auth elements (RTL = right is start) */}
+            <div className="flex items-center gap-2 md:gap-3">
               <NotificationBell />
               <span className="text-sm text-gray-600 font-medium hidden sm:block">{user?.businessName}</span>
               <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 hidden md:block">
@@ -80,6 +60,31 @@ export default function Layout() {
                 )}
               </button>
             </div>
+
+            {/* Center: nav links */}
+            <div className="hidden md:flex items-center gap-1 mx-auto">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-500'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  <span className="me-1">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+
+            {/* Left side: logo (RTL = left is end) */}
+            <div className="ms-auto md:ms-0">
+              <h1 className="text-lg md:text-xl font-bold text-primary-500">שומר המחיר</h1>
+            </div>
           </div>
         </div>
 
@@ -97,7 +102,7 @@ export default function Layout() {
                   }`
                 }
               >
-                <span className="ml-2 text-lg">{item.icon}</span>
+                <span className="me-2 text-lg">{item.icon}</span>
                 {item.label}
               </NavLink>
             ))}

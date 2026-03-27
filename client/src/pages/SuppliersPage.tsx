@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ISupplier, SupplierCategory, SUPPLIER_CATEGORIES, UnitType } from '@shared/types';
+import { ISupplier, IPriceAgreement, SupplierCategory, SUPPLIER_CATEGORIES, UnitType } from '@shared/types';
 import * as suppliersApi from '../api/suppliers';
 import * as agreementsApi from '../api/agreements';
+import * as analyticsApi from '../api/analytics';
 import { useOnboardingStore } from '../store/onboardingStore';
 import OnboardingTooltip from '../components/OnboardingTooltip';
 
@@ -70,6 +71,12 @@ export default function SuppliersPage() {
   const navigate = useNavigate();
   const { markStep, steps } = useOnboardingStore();
   const addBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Supplier detail popup state
+  const [detailSupplier, setDetailSupplier] = useState<ISupplier | null>(null);
+  const [detailAgreements, setDetailAgreements] = useState<IPriceAgreement[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRiskScore, setDetailRiskScore] = useState<{ score: number; explanation: string } | null>(null);
 
   const loadSuppliers = async () => {
     try {
@@ -163,6 +170,22 @@ export default function SuppliersPage() {
     } catch {
       toast.error('שגיאה');
     }
+  };
+
+  const handleOpenDetail = async (s: ISupplier) => {
+    setDetailSupplier(s);
+    setDetailLoading(true);
+    setDetailRiskScore(null);
+    try {
+      const [agrs, riskData] = await Promise.all([
+        agreementsApi.getAgreements(s._id),
+        analyticsApi.getSupplierRisk().catch(() => []),
+      ]);
+      setDetailAgreements(agrs);
+      const risk = riskData.find((r) => r.supplierId === s._id);
+      if (risk) setDetailRiskScore({ score: risk.riskScore, explanation: risk.explanation });
+    } catch { /* ignore */ }
+    finally { setDetailLoading(false); }
   };
 
   const handleReactivate = async (id: string) => {
@@ -446,7 +469,8 @@ export default function SuppliersPage() {
           {suppliers.map((s) => (
             <div
               key={s._id}
-              className={`card card-hover ${!s.isActive ? 'opacity-50' : ''}`}
+              onClick={() => handleOpenDetail(s)}
+              className={`card card-hover cursor-pointer ${!s.isActive ? 'opacity-50' : ''}`}
             >
               {/* Header: avatar + name + category */}
               <div className="flex gap-3 mb-3">
@@ -545,6 +569,122 @@ export default function SuppliersPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Supplier detail popup */}
+      {detailSupplier && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4" onClick={() => setDetailSupplier(null)}>
+          <div className="bg-white rounded-xl shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            {/* Close button — top left for RTL */}
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full ${avatarColor(detailSupplier.name)} text-white flex items-center justify-center font-bold text-sm`}>
+                  {getInitials(detailSupplier.name)}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">{detailSupplier.name}</h2>
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${categoryBadgeColor(detailSupplier.category)}`}>
+                    {detailSupplier.category}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setDetailSupplier(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Contact + risk */}
+            <div className="space-y-2 mb-4">
+              {detailSupplier.contactName && <p className="text-sm"><span className="text-gray-400">איש קשר:</span> {detailSupplier.contactName}</p>}
+              {detailSupplier.contactPhone && <p className="text-sm text-gray-500" dir="ltr">{detailSupplier.contactPhone}</p>}
+              {detailSupplier.email && <p className="text-sm text-gray-500" dir="ltr">{detailSupplier.email}</p>}
+              {detailRiskScore && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">סיכון:</span>
+                  {detailRiskScore.score >= 60 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">גבוה</span>
+                  ) : detailRiskScore.score >= 30 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">בינוני</span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">נמוך</span>
+                  )}
+                  <span className="text-xs text-gray-400" title={detailRiskScore.explanation}>{detailRiskScore.explanation}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Invoice summary */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">חשבוניות</p>
+                <p className="text-lg font-bold">{detailSupplier.invoiceCount || 0}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">הסכמים</p>
+                <p className="text-lg font-bold">{detailSupplier.agreementCount || 0}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500">סיכון</p>
+                <p className="text-lg font-bold text-danger-500">{detailSupplier.overchargeRiskPercent || 0}%</p>
+              </div>
+            </div>
+
+            {/* Agreements table */}
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold mb-2">הסכמי מחיר</h3>
+              {detailLoading ? (
+                <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-500"></div></div>
+              ) : detailAgreements.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2">אין הסכמי מחיר</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-gray-500 text-xs">
+                        <th className="text-right py-1.5">פריט</th>
+                        <th className="text-right py-1.5">יחידה</th>
+                        <th className="text-right py-1.5">מחיר מוסכם</th>
+                        <th className="text-right py-1.5">תוקף עד</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailAgreements.map((a) => (
+                        <tr key={a._id} className="border-b border-gray-50">
+                          <td className="py-1.5 font-medium">{a.productName}</td>
+                          <td className="py-1.5">{UNITS.find(u => u.value === a.unit)?.label || a.unit}</td>
+                          <td className="py-1.5 text-success-500" dir="ltr">₪{(a.agreedPrice / 100).toFixed(2)}</td>
+                          <td className="py-1.5 text-gray-400" dir="ltr">{a.validUntil ? new Date(a.validUntil).toLocaleDateString('he-IL') : 'ללא'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex flex-wrap gap-2 pt-3 border-t">
+              <button
+                onClick={() => { setDetailSupplier(null); handleEdit(detailSupplier); }}
+                className="btn-secondary text-sm flex-1"
+              >
+                ערוך ספק
+              </button>
+              <button
+                onClick={() => { setDetailSupplier(null); navigate(`/app/agreements?supplierId=${detailSupplier._id}&openModal=true`); }}
+                className="btn-secondary text-sm flex-1"
+              >
+                הוסף הסכם
+              </button>
+              <button
+                onClick={() => { setDetailSupplier(null); navigate(`/app/invoices?supplierId=${detailSupplier._id}`); }}
+                className="btn-primary text-sm flex-1"
+              >
+                צפה בחשבוניות
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

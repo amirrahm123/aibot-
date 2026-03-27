@@ -60,6 +60,14 @@ export async function generateDisputeMessage(id: string): Promise<{ message: str
   return res.data;
 }
 
+export async function archiveInvoice(id: string): Promise<void> {
+  await api.post(`/invoices/${id}/archive`);
+}
+
+export async function unarchiveInvoice(id: string): Promise<void> {
+  await api.post(`/invoices/${id}/unarchive`);
+}
+
 export async function getUsageStatus(): Promise<IUserUsage> {
   const res = await api.get<IUserUsage>('/invoices/usage');
   return res.data;

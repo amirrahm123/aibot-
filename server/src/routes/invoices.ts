@@ -132,16 +132,24 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
 
-    const filter: any = { userId: req.userId };
+    const filter: Record<string, unknown> = { userId: req.userId };
+
+    // By default hide archived; show archived only when explicitly requested
+    if (req.query.archived === 'true') {
+      filter.archived = true;
+    } else {
+      filter.archived = { $ne: true };
+    }
 
     if (req.query.supplierId) filter.supplierId = req.query.supplierId;
     if (req.query.overchargeOnly === 'true') filter.overchargeCount = { $gt: 0 };
     if (req.query.pendingOnly === 'true') filter.status = 'pending_approval';
     if (req.query.source) filter.source = req.query.source;
     if (req.query.dateFrom || req.query.dateTo) {
-      filter.uploadedAt = {};
-      if (req.query.dateFrom) filter.uploadedAt.$gte = new Date(req.query.dateFrom as string);
-      if (req.query.dateTo) filter.uploadedAt.$lte = new Date(req.query.dateTo as string);
+      const dateFilter: Record<string, Date> = {};
+      if (req.query.dateFrom) dateFilter.$gte = new Date(req.query.dateFrom as string);
+      if (req.query.dateTo) dateFilter.$lte = new Date(req.query.dateTo as string);
+      filter.uploadedAt = dateFilter;
     }
     if (req.query.search) {
       const search = req.query.search as string;
@@ -201,19 +209,61 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// DELETE /api/invoices/:id
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+// POST /api/invoices/:id/archive — move to archive
+router.post('/:id/archive', async (req: AuthRequest, res: Response) => {
   try {
-    const invoice = await Invoice.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const invoice = await Invoice.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { $set: { archived: true } },
+      { new: true },
+    );
     if (!invoice) {
       res.status(404).json({ error: 'חשבונית לא נמצאה' });
       return;
     }
+    res.json({ message: 'חשבונית הועברה לארכיון' });
+  } catch {
+    res.status(500).json({ error: 'שגיאה בהעברה לארכיון' });
+  }
+});
+
+// POST /api/invoices/:id/unarchive — restore from archive
+router.post('/:id/unarchive', async (req: AuthRequest, res: Response) => {
+  try {
+    const invoice = await Invoice.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { $set: { archived: false } },
+      { new: true },
+    );
+    if (!invoice) {
+      res.status(404).json({ error: 'חשבונית לא נמצאה' });
+      return;
+    }
+    res.json({ message: 'חשבונית שוחזרה מהארכיון' });
+  } catch {
+    res.status(500).json({ error: 'שגיאה בשחזור מארכיון' });
+  }
+});
+
+// DELETE /api/invoices/:id — hard delete (only archived invoices)
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    // Only allow deletion of archived invoices
+    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.userId });
+    if (!invoice) {
+      res.status(404).json({ error: 'חשבונית לא נמצאה' });
+      return;
+    }
+    if (!invoice.archived) {
+      res.status(400).json({ error: 'ניתן למחוק רק חשבוניות בארכיון. העבר לארכיון תחילה.' });
+      return;
+    }
+    await Invoice.deleteOne({ _id: invoice._id });
     // Clean up file
     if (invoice.fileUrl && fs.existsSync(invoice.fileUrl)) {
       fs.unlinkSync(invoice.fileUrl);
     }
-    res.json({ message: 'חשבונית נמחקה בהצלחה' });
+    res.json({ message: 'חשבונית נמחקה לצמיתות' });
   } catch {
     res.status(500).json({ error: 'שגיאה במחיקת חשבונית' });
   }

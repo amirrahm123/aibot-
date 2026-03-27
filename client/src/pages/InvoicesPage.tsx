@@ -220,6 +220,30 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {/* Tabs: Active / Archive */}
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
+        <button
+          onClick={() => { setShowArchived(false); setPage(1); }}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            !showArchived
+              ? 'border-primary-500 text-primary-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          חשבוניות פעילות
+        </button>
+        <button
+          onClick={() => { setShowArchived(true); setPage(1); }}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            showArchived
+              ? 'border-primary-500 text-primary-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          ארכיון
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col md:flex-row flex-wrap gap-3 mb-4">
         <input
@@ -234,18 +258,18 @@ export default function InvoicesPage() {
           <option value="">כל הספקים</option>
           {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
         </select>
-        <label className="flex items-center gap-2 text-sm min-h-[44px]">
-          <input type="checkbox" checked={overchargeOnly} onChange={(e) => { setOverchargeOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
-          חריגות בלבד
-        </label>
-        <label className="flex items-center gap-2 text-sm min-h-[44px]">
-          <input type="checkbox" checked={pendingOnly} onChange={(e) => { setPendingOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
-          ממתינים לאישור
-        </label>
-        <label className="flex items-center gap-2 text-sm min-h-[44px]">
-          <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
-          ארכיון
-        </label>
+        {!showArchived && (
+          <>
+            <label className="flex items-center gap-2 text-sm min-h-[44px]">
+              <input type="checkbox" checked={overchargeOnly} onChange={(e) => { setOverchargeOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
+              חריגות בלבד
+            </label>
+            <label className="flex items-center gap-2 text-sm min-h-[44px]">
+              <input type="checkbox" checked={pendingOnly} onChange={(e) => { setPendingOnly(e.target.checked); setPage(1); }} className="rounded w-5 h-5" />
+              ממתינים לאישור
+            </label>
+          </>
+        )}
       </div>
 
       {/* Upload modal — full-screen on mobile */}
@@ -306,15 +330,25 @@ export default function InvoicesPage() {
       {/* Table */}
       {!invoices || invoices.data.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">📄</div>
-          <h2 className="text-xl font-bold text-gray-700 mb-2">עדיין אין חשבוניות</h2>
-          <p className="text-gray-500 mb-6">העלה חשבונית ראשונה מאחד הספקים שלך</p>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="btn-primary text-base px-8 py-3"
-          >
-            + העלה חשבונית
-          </button>
+          {showArchived ? (
+            <>
+              <div className="text-6xl mb-4">📦</div>
+              <h2 className="text-xl font-bold text-gray-700 mb-2">הארכיון ריק</h2>
+              <p className="text-gray-500 mb-6">חשבוניות שתעביר לארכיון יופיעו כאן</p>
+            </>
+          ) : (
+            <>
+              <div className="text-6xl mb-4">📄</div>
+              <h2 className="text-xl font-bold text-gray-700 mb-2">עדיין אין חשבוניות</h2>
+              <p className="text-gray-500 mb-6">העלה חשבונית ראשונה מאחד הספקים שלך</p>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="btn-primary text-base px-8 py-3"
+              >
+                + העלה חשבונית
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <>
